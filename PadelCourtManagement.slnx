@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/backend/" />
+  <Folder Name="/backend/src/">
+    <Project Path="backend/src/PadelCourtManagement.Api/PadelCourtManagement.Api.csproj" />
+    <Project Path="backend/src/PadelCourtManagement.Application/PadelCourtManagement.Application.csproj" />
+    <Project Path="backend/src/PadelCourtManagement.Domain/PadelCourtManagement.Domain.csproj" />
+    <Project Path="backend/src/PadelCourtManagement.Infrastructure/PadelCourtManagement.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/backend/tests/">
+    <Project Path="backend/tests/PadelCourtManagement.Tests/PadelCourtManagement.Tests.csproj" />
+  </Folder>
+</Solution>

@@ -1,0 +1,23 @@
+# .NET build output
+[Bb]in/
+[Oo]bj/
+[Tt]est[Rr]esult*/
+
+# Visual Studio and Rider
+.vs/
+.idea/
+*.user
+*.suo
+
+# Local configuration and secrets
+appsettings.Local.json
+secrets/
+
+# Frontend dependencies and output
+frontend/node_modules/
+frontend/dist/
+
+# Coverage and logs
+coverage/
+*.coverage
+*.log
