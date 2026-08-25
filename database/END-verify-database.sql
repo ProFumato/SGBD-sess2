@@ -17,6 +17,11 @@ BEGIN TRY
     IF (SELECT COUNT(*) FROM sys.tables WHERE [schema_id] = SCHEMA_ID(N'pcm')) <> 12
         THROW 52001, 'The expected pcm schema tables are missing.', 1;
 
+    IF OBJECT_ID(N'pcm.TR_AdministratorAssignment_RequireGlobalAdministrator', N'TR') IS NULL
+       OR OBJECT_ID(N'pcm.TR_Member_RequireGlobalAdministrator', N'TR') IS NULL
+       OR OBJECT_ID(N'pcm.TR_SiteAnnualSchedule_ValidateExistingMatches', N'TR') IS NULL
+        ;THROW 52009, 'The administration integrity triggers are missing.', 1;
+
     INSERT INTO [pcm].[Site] ([Name])
     VALUES (N'Database integration validation site');
 
@@ -63,6 +68,26 @@ BEGIN TRY
     VALUES (@CourtId, @OrganizerId, '2030-01-10T10:00:00', '2030-01-10T11:30:00', 'Public');
 
     DECLARE @MatchId INT = SCOPE_IDENTITY();
+
+    INSERT INTO [pcm].[SiteAnnualSchedule]
+    (
+        [SiteId],
+        [CalendarYear],
+        [OpeningTime],
+        [ClosingTime]
+    )
+    VALUES (@SiteId, 2030, '09:00:00', '22:00:00');
+
+    BEGIN TRY
+        UPDATE [pcm].[SiteAnnualSchedule]
+        SET [OpeningTime] = '10:30:00'
+        WHERE [SiteId] = @SiteId
+          AND [CalendarYear] = 2030;
+        ;THROW 52010, 'Schedule excluding an existing match was accepted.', 1;
+    END TRY
+    BEGIN CATCH
+        IF ERROR_NUMBER() <> 51007 THROW;
+    END CATCH;
 
     BEGIN TRY
         INSERT INTO [pcm].[Match] ([CourtId], [OrganizerMemberId], [StartsAt], [EndsAt], [Visibility])
@@ -144,6 +169,7 @@ BEGIN TRY
     DELETE [pcm].[Payment] WHERE [PayerMemberId] = @OrganizerId;
     DELETE [pcm].[MatchParticipant] WHERE [MatchId] = @MatchId;
     DELETE [pcm].[Match] WHERE [MatchId] = @MatchId;
+    DELETE [pcm].[SiteAnnualSchedule] WHERE [SiteId] = @SiteId;
     DELETE [pcm].[Court] WHERE [CourtId] = @CourtId;
     DELETE [pcm].[Member] WHERE [Matricule] IN ('L00001', 'S00001', 'S00002', 'S00003', 'S00004', 'S00005');
     DELETE [pcm].[Site] WHERE [SiteId] = @SiteId;
