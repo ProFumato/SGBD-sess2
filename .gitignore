@@ -21,3 +21,4 @@ frontend/dist/
 coverage/
 *.coverage
 *.log
+.github/
