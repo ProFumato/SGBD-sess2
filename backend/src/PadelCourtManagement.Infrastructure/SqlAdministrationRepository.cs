@@ -5,7 +5,6 @@ using PadelCourtManagement.Domain;
 
 namespace PadelCourtManagement.Infrastructure;
 
-<<<<<<< HEAD
 public sealed class SqlAdministrationRepository(
     string connectionString) :
     IMemberRepository,
@@ -14,9 +13,6 @@ public sealed class SqlAdministrationRepository(
     ICourtRepository,
     IScheduleRepository,
     IClosureRepository
-=======
-public sealed class SqlAdministrationRepository(string connectionString) : IAdministrationRepository
->>>>>>> origin/main
 {
     public async Task<AdministratorActor?> GetActiveAdministratorAsync(string matricule, CancellationToken cancellationToken)
     {
@@ -98,15 +94,10 @@ public sealed class SqlAdministrationRepository(string connectionString) : IAdmi
             SELECT CONVERT(int, SCOPE_IDENTITY());
             """;
 
-<<<<<<< HEAD
-        var memberId = await ExecuteIdentityAsync(sql, command => AddMemberParameters(command, input), cancellationToken);
-=======
         var memberId = await ExecuteIdentityAsync(sql, command =>
         {
             AddMemberParameters(command, input);
         }, cancellationToken);
-
->>>>>>> origin/main
         return await GetMemberByIdAsync(memberId, cancellationToken);
     }
 
@@ -172,14 +163,10 @@ public sealed class SqlAdministrationRepository(string connectionString) : IAdmi
             SELECT CONVERT(int, SCOPE_IDENTITY());
             """;
 
-<<<<<<< HEAD
-        var siteId = await ExecuteIdentityAsync(sql, command => Add(command, "@Name", SqlDbType.NVarChar, input.Name), cancellationToken);
-=======
         var siteId = await ExecuteIdentityAsync(
             sql,
             command => Add(command, "@Name", SqlDbType.NVarChar, input.Name),
             cancellationToken);
->>>>>>> origin/main
         return await GetSiteByIdAsync(siteId, cancellationToken);
     }
 
@@ -262,16 +249,12 @@ public sealed class SqlAdministrationRepository(string connectionString) : IAdmi
         return await GetCourtByIdAsync(courtId, cancellationToken);
     }
 
-<<<<<<< HEAD
-    public async Task<bool> HasMatchOutsideScheduleAsync(int siteId, int calendarYear, TimeOnly openingTime, TimeOnly closingTime, CancellationToken cancellationToken)
-=======
     public async Task<bool> HasMatchOutsideScheduleAsync(
         int siteId,
         int calendarYear,
         TimeOnly openingTime,
         TimeOnly closingTime,
         CancellationToken cancellationToken)
->>>>>>> origin/main
     {
         const string sql = """
             SELECT CASE WHEN EXISTS
@@ -281,15 +264,11 @@ public sealed class SqlAdministrationRepository(string connectionString) : IAdmi
                 INNER JOIN pcm.Court AS c ON c.CourtId = m.CourtId
                 WHERE c.SiteId = @SiteId
                   AND DATEPART(YEAR, m.StartsAt) = @CalendarYear
-<<<<<<< HEAD
-                  AND (CONVERT(time(0), m.StartsAt) < @OpeningTime OR CONVERT(time(0), m.EndsAt) > @ClosingTime)
-=======
                   AND
                   (
                       CONVERT(time(0), m.StartsAt) < @OpeningTime
                       OR CONVERT(time(0), m.EndsAt) > @ClosingTime
                   )
->>>>>>> origin/main
             ) THEN 1 ELSE 0 END;
             """;
 
@@ -302,8 +281,6 @@ public sealed class SqlAdministrationRepository(string connectionString) : IAdmi
         }, cancellationToken);
     }
 
-<<<<<<< HEAD
-=======
     public async Task<SiteAnnualSchedule> SetScheduleAsync(
         int siteId,
         int calendarYear,
@@ -350,7 +327,6 @@ public sealed class SqlAdministrationRepository(string connectionString) : IAdmi
         }
     }
 
->>>>>>> origin/main
     public async Task<IReadOnlyList<SiteAnnualSchedule>> GetSchedulesAsync(int siteId, CancellationToken cancellationToken)
     {
         const string sql = """
@@ -374,44 +350,6 @@ public sealed class SqlAdministrationRepository(string connectionString) : IAdmi
         return schedules;
     }
 
-<<<<<<< HEAD
-    public async Task<SiteAnnualSchedule> SetScheduleAsync(int siteId, int calendarYear, ScheduleInput input, CancellationToken cancellationToken)
-    {
-        const string sql = """
-            UPDATE pcm.SiteAnnualSchedule
-            SET OpeningTime = @OpeningTime, ClosingTime = @ClosingTime
-            WHERE SiteId = @SiteId AND CalendarYear = @CalendarYear;
-
-            IF @@ROWCOUNT = 0
-            BEGIN
-                INSERT INTO pcm.SiteAnnualSchedule (SiteId, CalendarYear, OpeningTime, ClosingTime)
-                VALUES (@SiteId, @CalendarYear, @OpeningTime, @ClosingTime);
-            END;
-
-            SELECT SiteAnnualScheduleId, SiteId, CalendarYear, OpeningTime, ClosingTime
-            FROM pcm.SiteAnnualSchedule
-            WHERE SiteId = @SiteId AND CalendarYear = @CalendarYear;
-            """;
-
-        await using var connection = CreateConnection();
-        await connection.OpenAsync(cancellationToken);
-        await using var command = CreateCommand(connection, sql);
-        AddScheduleParameters(command, siteId, calendarYear, input);
-        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
-        while (!reader.HasRows && await reader.NextResultAsync(cancellationToken))
-        {
-        }
-
-        if (!await reader.ReadAsync(cancellationToken))
-        {
-            throw new InvalidOperationException("The schedule could not be read after it was saved.");
-        }
-
-        return ReadSchedule(reader);
-    }
-
-=======
->>>>>>> origin/main
     public Task DeleteScheduleAsync(int siteId, int calendarYear, CancellationToken cancellationToken) =>
         ExecuteNonQueryAsync(
             "DELETE FROM pcm.SiteAnnualSchedule WHERE SiteId = @SiteId AND CalendarYear = @CalendarYear;",
@@ -477,11 +415,7 @@ public sealed class SqlAdministrationRepository(string connectionString) : IAdmi
 
         return await ExecuteBooleanAsync(sql, command =>
         {
-<<<<<<< HEAD
             Add(command, "@SiteId", SqlDbType.Int, input.Scope == ClosureScope.Site ? input.SiteId : null);
-=======
-            Add(command, "@SiteId", SqlDbType.Int, input.Scope == AdministratorScope.Site ? input.SiteId : null);
->>>>>>> origin/main
             Add(command, "@StartsAt", SqlDbType.DateTime2, input.StartsAt);
             Add(command, "@EndsAt", SqlDbType.DateTime2, input.EndsAt);
         }, cancellationToken);
@@ -495,14 +429,10 @@ public sealed class SqlAdministrationRepository(string connectionString) : IAdmi
             SELECT CONVERT(int, SCOPE_IDENTITY());
             """;
 
-<<<<<<< HEAD
-        var closureId = await ExecuteIdentityAsync(sql, command => AddClosureParameters(command, input), cancellationToken);
-=======
         var closureId = await ExecuteIdentityAsync(
             sql,
             command => AddClosureParameters(command, input),
             cancellationToken);
->>>>>>> origin/main
         return await GetClosureByIdAsync(closureId, cancellationToken);
     }
 
@@ -548,24 +478,16 @@ public sealed class SqlAdministrationRepository(string connectionString) : IAdmi
             command =>
             {
                 Add(command, "@MemberId", SqlDbType.Int, memberId);
-<<<<<<< HEAD
-                Add(command, "@Scope", SqlDbType.Char, AdministratorScopeToDatabase(input.Scope));
-=======
                 Add(command, "@Scope", SqlDbType.Char, ScopeToDatabase(input.Scope));
->>>>>>> origin/main
                 Add(command, "@SiteId", SqlDbType.Int, input.SiteId);
             },
             cancellationToken);
 
     public Task RemoveAdministratorRoleAsync(int memberId, CancellationToken cancellationToken) =>
-<<<<<<< HEAD
-        ExecuteNonQueryAsync("DELETE FROM pcm.AdministratorAssignment WHERE MemberId = @MemberId;", command => Add(command, "@MemberId", SqlDbType.Int, memberId), cancellationToken);
-=======
         ExecuteNonQueryAsync(
             "DELETE FROM pcm.AdministratorAssignment WHERE MemberId = @MemberId;",
             command => Add(command, "@MemberId", SqlDbType.Int, memberId),
             cancellationToken);
->>>>>>> origin/main
 
     private async Task<Member> GetMemberByIdAsync(int memberId, CancellationToken cancellationToken)
     {
@@ -588,7 +510,6 @@ public sealed class SqlAdministrationRepository(string connectionString) : IAdmi
     }
 
     private async Task<Site> GetSiteByIdAsync(int siteId, CancellationToken cancellationToken) =>
-<<<<<<< HEAD
         await GetSiteAsync(siteId, cancellationToken) ?? throw new InvalidOperationException("The site could not be read after it was saved.");
 
     private async Task<Court> GetCourtByIdAsync(int courtId, CancellationToken cancellationToken) =>
@@ -598,23 +519,6 @@ public sealed class SqlAdministrationRepository(string connectionString) : IAdmi
         await GetClosureAsync(closureId, cancellationToken) ?? throw new InvalidOperationException("The closure could not be read after it was saved.");
 
     private async Task<int> ExecuteIdentityAsync(string sql, Action<SqlCommand> configure, CancellationToken cancellationToken)
-=======
-        await GetSiteAsync(siteId, cancellationToken)
-        ?? throw new InvalidOperationException("The site could not be read after it was saved.");
-
-    private async Task<Court> GetCourtByIdAsync(int courtId, CancellationToken cancellationToken) =>
-        await GetCourtAsync(courtId, cancellationToken)
-        ?? throw new InvalidOperationException("The court could not be read after it was saved.");
-
-    private async Task<Closure> GetClosureByIdAsync(int closureId, CancellationToken cancellationToken) =>
-        await GetClosureAsync(closureId, cancellationToken)
-        ?? throw new InvalidOperationException("The closure could not be read after it was saved.");
-
-    private async Task<int> ExecuteIdentityAsync(
-        string sql,
-        Action<SqlCommand> configure,
-        CancellationToken cancellationToken)
->>>>>>> origin/main
     {
         await using var connection = CreateConnection();
         await connection.OpenAsync(cancellationToken);
@@ -631,14 +535,10 @@ public sealed class SqlAdministrationRepository(string connectionString) : IAdmi
         }
     }
 
-<<<<<<< HEAD
-    private async Task ExecuteNonQueryAsync(string sql, Action<SqlCommand> configure, CancellationToken cancellationToken)
-=======
     private async Task ExecuteNonQueryAsync(
         string sql,
         Action<SqlCommand> configure,
         CancellationToken cancellationToken)
->>>>>>> origin/main
     {
         await using var connection = CreateConnection();
         await connection.OpenAsync(cancellationToken);
@@ -654,14 +554,10 @@ public sealed class SqlAdministrationRepository(string connectionString) : IAdmi
         }
     }
 
-<<<<<<< HEAD
-    private async Task<bool> ExecuteBooleanAsync(string sql, Action<SqlCommand> configure, CancellationToken cancellationToken)
-=======
     private async Task<bool> ExecuteBooleanAsync(
         string sql,
         Action<SqlCommand> configure,
         CancellationToken cancellationToken)
->>>>>>> origin/main
     {
         await using var connection = CreateConnection();
         await connection.OpenAsync(cancellationToken);
@@ -674,23 +570,15 @@ public sealed class SqlAdministrationRepository(string connectionString) : IAdmi
     {
         if (string.IsNullOrWhiteSpace(connectionString))
         {
-<<<<<<< HEAD
-            throw new InvalidOperationException("The PadelCourtManagement connection string must be configured outside source control.");
-=======
             throw new InvalidOperationException(
                 "The PadelCourtManagement connection string must be configured outside source control.");
->>>>>>> origin/main
         }
 
         return new SqlConnection(connectionString);
     }
 
-<<<<<<< HEAD
-    private static SqlCommand CreateCommand(SqlConnection connection, string sql) => new(sql, connection);
-=======
     private static SqlCommand CreateCommand(SqlConnection connection, string sql) =>
         new(sql, connection);
->>>>>>> origin/main
 
     private static void Add(SqlCommand command, string name, SqlDbType type, object? value)
     {
@@ -706,15 +594,11 @@ public sealed class SqlAdministrationRepository(string connectionString) : IAdmi
         Add(command, "@IsActive", SqlDbType.Bit, input.IsActive);
     }
 
-<<<<<<< HEAD
-    private static void AddScheduleParameters(SqlCommand command, int siteId, int calendarYear, ScheduleInput input)
-=======
     private static void AddScheduleParameters(
         SqlCommand command,
         int siteId,
         int calendarYear,
         ScheduleInput input)
->>>>>>> origin/main
     {
         Add(command, "@SiteId", SqlDbType.Int, siteId);
         Add(command, "@CalendarYear", SqlDbType.SmallInt, calendarYear);
@@ -724,11 +608,7 @@ public sealed class SqlAdministrationRepository(string connectionString) : IAdmi
 
     private static void AddClosureParameters(SqlCommand command, ClosureInput input)
     {
-<<<<<<< HEAD
         Add(command, "@Scope", SqlDbType.Char, ClosureScopeToDatabase(input.Scope));
-=======
-        Add(command, "@Scope", SqlDbType.Char, ScopeToDatabase(input.Scope));
->>>>>>> origin/main
         Add(command, "@SiteId", SqlDbType.Int, input.SiteId);
         Add(command, "@StartsAt", SqlDbType.DateTime2, input.StartsAt);
         Add(command, "@EndsAt", SqlDbType.DateTime2, input.EndsAt);
@@ -748,11 +628,7 @@ public sealed class SqlAdministrationRepository(string connectionString) : IAdmi
         new(
             reader.GetInt32(0),
             reader.GetString(1),
-<<<<<<< HEAD
             AdministratorScopeFromDatabase(reader.GetString(2)),
-=======
-            ScopeFromDatabase(reader.GetString(2)),
->>>>>>> origin/main
             reader.IsDBNull(3) ? null : reader.GetInt32(3));
 
     private static Site ReadSite(SqlDataReader reader) =>
@@ -772,11 +648,7 @@ public sealed class SqlAdministrationRepository(string connectionString) : IAdmi
     private static Closure ReadClosure(SqlDataReader reader) =>
         new(
             reader.GetInt32(0),
-<<<<<<< HEAD
             ClosureScopeFromDatabase(reader.GetString(1)),
-=======
-            ScopeFromDatabase(reader.GetString(1)),
->>>>>>> origin/main
             reader.IsDBNull(2) ? null : reader.GetInt32(2),
             reader.GetDateTime(3),
             reader.GetDateTime(4),
@@ -798,18 +670,13 @@ public sealed class SqlAdministrationRepository(string connectionString) : IAdmi
         _ => throw new InvalidOperationException("The database contains an unknown member category.")
     };
 
-<<<<<<< HEAD
-    private static string AdministratorScopeToDatabase(AdministratorScope scope) => scope switch
-=======
     private static string ScopeToDatabase(AdministratorScope scope) => scope switch
->>>>>>> origin/main
     {
         AdministratorScope.Global => "G",
         AdministratorScope.Site => "S",
         _ => throw new ArgumentOutOfRangeException(nameof(scope))
     };
 
-<<<<<<< HEAD
     private static string ClosureScopeToDatabase(ClosureScope scope) => scope switch
     {
         ClosureScope.Global => "G",
@@ -825,21 +692,14 @@ public sealed class SqlAdministrationRepository(string connectionString) : IAdmi
     };
 
     private static AdministratorScope AdministratorScopeFromDatabase(string scope) => scope switch
-=======
-    private static AdministratorScope ScopeFromDatabase(string scope) => scope switch
->>>>>>> origin/main
     {
         "G" => AdministratorScope.Global,
         "S" => AdministratorScope.Site,
         _ => throw new InvalidOperationException("The database contains an unknown administrator scope.")
     };
 
-<<<<<<< HEAD
-    private static bool IsIntegrityConflict(SqlException exception) => exception.Number is 2601 or 2627 or 51002 or 51006 or 51007;
-=======
     private static bool IsIntegrityConflict(SqlException exception) =>
         exception.Number is 2601 or 2627 or 51002 or 51006 or 51007;
->>>>>>> origin/main
 
     private static string GetIntegrityConflictMessage(SqlException exception) => exception.Number switch
     {
