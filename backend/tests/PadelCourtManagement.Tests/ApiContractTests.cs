@@ -63,6 +63,73 @@ public sealed class ApiContractTests : IClassFixture<ApiFactory>
         var payload = await response.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal("G0001", payload.GetProperty("member").GetProperty("matricule").GetString());
     }
+
+    [Fact]
+    public async Task Unknown_identity_returns_not_found_problem()
+    {
+        var response = await client.GetAsync("/api/identity/members/G9999");
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+    }
+
+    [Fact]
+    public async Task Unknown_administrator_returns_forbidden()
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/api/admin/sites");
+        request.Headers.Add("X-Actor-Matricule", "G9999");
+
+        var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Missing_statistics_dates_return_bad_request()
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/api/admin/statistics");
+        request.Headers.Add("X-Actor-Matricule", "G0001");
+
+        var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Global_statistics_endpoint_returns_report()
+    {
+        using var request = new HttpRequestMessage(
+            HttpMethod.Get,
+            "/api/admin/statistics?from=2099-01-01T00:00:00&to=2099-12-31T00:00:00");
+        request.Headers.Add("X-Actor-Matricule", "G0001");
+
+        var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var payload = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.True(payload.TryGetProperty("matches", out _));
+        Assert.True(payload.TryGetProperty("breakdown", out _));
+    }
+
+    [Fact]
+    public async Task Payment_for_unknown_match_returns_not_found()
+    {
+        var response = await client.PostAsync(
+            "/api/matches/999999/payment?matricule=G0001",
+            content: null);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Public_join_for_unknown_match_returns_not_found()
+    {
+        var response = await client.PostAsync(
+            "/api/matches/999999/join?matricule=G0001",
+            content: null);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
 }
 
 public sealed class ApiFactory : WebApplicationFactory<Program>

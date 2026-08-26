@@ -239,6 +239,12 @@ public sealed class SqlMatchRepository(IConfiguration configuration) : IMatchRep
                 IF NOT EXISTS
                 (
                     SELECT 1 FROM pcm.Match WITH (UPDLOCK, HOLDLOCK)
+                    WHERE MatchId = @MatchId
+                )
+                    THROW 51014, 'The match does not exist.', 1;
+                IF NOT EXISTS
+                (
+                    SELECT 1 FROM pcm.Match WITH (UPDLOCK, HOLDLOCK)
                     WHERE MatchId = @MatchId AND Visibility = 'Public' AND StartsAt > @PaidAt
                 )
                     THROW 51011, 'The public match is unavailable.', 1;
@@ -298,6 +304,11 @@ public sealed class SqlMatchRepository(IConfiguration configuration) : IMatchRep
 
             await transaction.CommitAsync(cancellationToken);
             return result;
+        }
+        catch (SqlException exception) when (exception.Number == 51014)
+        {
+            await transaction.RollbackAsync(CancellationToken.None);
+            throw new ReservationNotFoundException("The match does not exist.");
         }
         catch (SqlException exception) when (exception.Number is 2601 or 2627 or 51003 or 51011 or 51012 or 51013)
         {
