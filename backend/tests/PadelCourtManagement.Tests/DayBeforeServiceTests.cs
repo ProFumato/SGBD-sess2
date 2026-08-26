@@ -1,5 +1,6 @@
 using PadelCourtManagement.Application;
 using PadelCourtManagement.Domain;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace PadelCourtManagement.Tests;
 
@@ -29,6 +30,21 @@ public sealed class DayBeforeServiceTests
         Assert.Equal(new DateOnly(2026, 8, 27), repository.RequestedDate);
     }
 
+    [Fact]
+    public async Task Hosted_runner_uses_the_injected_clock()
+    {
+        var expected = new DateTimeOffset(2026, 8, 26, 10, 0, 0, TimeSpan.FromHours(2));
+        var service = new RecordingDayBeforeService();
+        var runner = new DayBeforeProcessingRunner(
+            service,
+            new FixedTimeProvider(expected),
+            NullLogger<DayBeforeProcessingRunner>.Instance);
+
+        await runner.RunOnceAsync(CancellationToken.None);
+
+        Assert.Equal(expected, service.ReceivedNow);
+    }
+
     private sealed class FakeDayBeforeRepository : IDayBeforeRepository
     {
         public IReadOnlyList<int> MatchIds { get; init; } = [];
@@ -51,5 +67,23 @@ public sealed class DayBeforeServiceTests
             var index = MatchIds.ToList().IndexOf(matchId);
             return Task.FromResult(Results[index]);
         }
+    }
+
+    private sealed class RecordingDayBeforeService : IDayBeforeService
+    {
+        public DateTimeOffset? ReceivedNow { get; private set; }
+
+        public Task<DayBeforeProcessingResult> ProcessAsync(
+            DateTimeOffset now,
+            CancellationToken cancellationToken)
+        {
+            ReceivedNow = now;
+            return Task.FromResult(new DayBeforeProcessingResult(0, 0, 0, 0, 0));
+        }
+    }
+
+    private sealed class FixedTimeProvider(DateTimeOffset now) : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => now;
     }
 }
