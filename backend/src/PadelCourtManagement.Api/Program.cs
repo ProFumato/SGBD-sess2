@@ -1,6 +1,8 @@
 using System.Text.Json.Serialization;
 using PadelCourtManagement.Api;
+using PadelCourtManagement.Application;
 using PadelCourtManagement.Application.Administration;
+using PadelCourtManagement.Domain;
 using PadelCourtManagement.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -18,19 +20,27 @@ builder.Services.AddScoped<ICourtRepository>(sp => sp.GetRequiredService<SqlAdmi
 builder.Services.AddScoped<IScheduleRepository>(sp => sp.GetRequiredService<SqlAdministrationRepository>());
 builder.Services.AddScoped<IClosureRepository>(sp => sp.GetRequiredService<SqlAdministrationRepository>());
 builder.Services.AddScoped<IAdministrationService, AdministrationService>();
+
+builder.Services.AddApplicationServices();
+builder.Services.AddSingleton<IAvailabilityRepository, SqlAvailabilityRepository>();
+builder.Services.AddSingleton<IAdminApiRepository, SqlAdminApiRepository>();
+builder.Services.AddSingleton<AdminApiService>();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
 app.UseHttpsRedirection();
-app.UseSwagger();
-app.UseSwaggerUI();
+
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
 
 app.MapGet("/health", () => Results.Ok(new { status = "Healthy" }))
     .WithName("HealthCheck");
 
-app.MapGet("/api/identity/members/{matricule}", async (
 var identity = app.MapGroup("/api/identity")
     .AddEndpointFilter<AdministrationExceptionFilter>();
 identity.MapGet("/members/{matricule}", async (
@@ -263,6 +273,14 @@ administration.MapDelete("/closures/{closureId:int}", async (
         return Results.NoContent();
     })
     .WithName("DeleteClosure");
+
+var availability = app.MapGroup("/api");
+availability.MapGet("/availability", ([AsParameters] AvailabilityRequest request, IAvailabilityService service)
+    => Results.Ok(service.GetAvailability(request)))
+    .WithName("GetAvailability");
+availability.MapPost("/reservations", (ReservationRequest request, IAvailabilityService service)
+    => Results.Ok(service.CreateReservation(request)))
+    .WithName("CreateReservation");
 
 app.Run();
 
