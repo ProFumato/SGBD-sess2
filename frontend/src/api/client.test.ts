@@ -3,6 +3,7 @@ import { createReservation, getAvailability } from "./availability";
 import { getMembers, setMemberActivation } from "./administration";
 import { apiRequest } from "./client";
 import { payParticipant } from "./payment";
+import { getSites, setSchedule } from "./administration";
 import {
   addPrivateParticipant,
   getPublicMatches,
@@ -182,5 +183,18 @@ describe("apiRequest", () => {
 
     expect((fetchMock.mock.calls[0][1].headers as Headers).get("X-Actor-Matricule")).toBe("G0001");
     expect((fetchMock.mock.calls[1][1].headers as Headers).get("X-Actor-Matricule")).toBe("G0001");
+  });
+
+  it("sends actor headers for configuration operations", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response("[]", { status: 200 }))
+      .mockResolvedValueOnce(new Response("{}", { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await getSites("G0001");
+    await setSchedule("G0001", 2, 2026, "09:00:00", "22:00:00");
+
+    expect((fetchMock.mock.calls[0][1].headers as Headers).get("X-Actor-Matricule")).toBe("G0001");
+    expect(fetchMock.mock.calls[1][0]).toContain("/api/admin/sites/2/schedules/2026");
   });
 });

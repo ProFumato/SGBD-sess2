@@ -6,6 +6,7 @@ import { ReservationPage } from "./components/ReservationPage";
 import { MatchParticipantsPage } from "./components/MatchParticipantsPage";
 import { PublicMatchesPage } from "./components/PublicMatchesPage";
 import { AdminMembersPage } from "./components/AdminMembersPage";
+import { AdminConfigurationPage } from "./components/AdminConfigurationPage";
 import { IdentityProvider, useIdentity } from "./state/identity";
 
 function App() {
@@ -16,6 +17,13 @@ function App() {
       </AppErrorBoundary>
     </IdentityProvider>
   );
+}
+
+function AdminConfigurationGuard() {
+  const { identity } = useIdentity();
+  if (!identity || !identity.member.isActive) return <Navigate to="/identity" replace />;
+  if (!identity.administratorRole) return <Navigate to="/member" replace />;
+  return <AdminConfigurationPage />;
 }
 
 function AppShell() {
@@ -44,6 +52,7 @@ function AppShell() {
           <Route path="/member/public-matches" element={<MemberPublicMatchesGuard />} />
           <Route path="/admin" element={<AdminGuard />} />
           <Route path="/admin/members" element={<AdminMembersGuard />} />
+          <Route path="/admin/configuration" element={<AdminConfigurationGuard />} />
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </main>
@@ -106,6 +115,7 @@ function AdminGuard() {
         {identity.administratorRole.siteId ? ` · site ${identity.administratorRole.siteId}` : ""}
       </p>
       <Link className="button" to="/admin/members">Manage members and roles</Link>
+      <Link className="button button-secondary" to="/admin/configuration">Manage sites and schedules</Link>
     </section>
   );
 }
