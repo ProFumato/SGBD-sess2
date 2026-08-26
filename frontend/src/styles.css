@@ -293,6 +293,34 @@ input:disabled {
   background: #8a291c;
 }
 
+.payment-panel,
+.payment-result {
+  display: grid;
+  gap: 0.5rem;
+  margin: 1.5rem 0;
+  padding: 1rem;
+  border: 1px solid #d4e0d5;
+  border-radius: 0.5rem;
+}
+
+.payment-result span {
+  color: #526057;
+}
+
+.payment-result-failed {
+  border-color: #d78b22;
+  background: #fff8e8;
+}
+
+select {
+  width: 100%;
+  max-width: 28rem;
+  padding: 0.75rem;
+  border: 1px solid #9caf9e;
+  border-radius: 0.5rem;
+  background: #fff;
+}
+
 @media (max-width: 640px) {
   .participant-row {
     align-items: stretch;

@@ -9,6 +9,7 @@ import {
   type MatchParticipant,
 } from "../api/matches";
 import { useIdentity } from "../state/identity";
+import { payParticipant, type PaymentOutcome, type PaymentResult } from "../api/payment";
 import { EmptyState, ErrorState, LoadingState } from "./Feedback";
 
 export function MatchParticipantsPage() {
@@ -21,6 +22,8 @@ export function MatchParticipantsPage() {
   const [loading, setLoading] = useState(true);
   const [mutating, setMutating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [paymentOutcome, setPaymentOutcome] = useState<PaymentOutcome>("Succeeded");
+  const [paymentResult, setPaymentResult] = useState<PaymentResult | null>(null);
 
   const refresh = useCallback(async () => {
     if (!identity || !Number.isInteger(matchId) || matchId <= 0) return;
@@ -39,6 +42,17 @@ export function MatchParticipantsPage() {
     void refresh();
   }, [refresh]);
 
+  const isOrganizer = participants.some(
+    (participant) => participant.isOrganizer && participant.matricule === identity?.member.matricule,
+  );
+  const organizerHasPendingPayment = participants.some(
+    (participant) =>
+      participant.isOrganizer &&
+      participant.matricule === identity?.member.matricule &&
+      !participant.isPaid &&
+      participant.participationStatus === "Pending",
+  );
+
   async function mutate(action: () => Promise<void>) {
     setMutating(true);
     setError(null);
@@ -52,13 +66,25 @@ export function MatchParticipantsPage() {
     }
   }
 
+  async function handlePayment() {
+    if (!identity || !isOrganizer) return;
+    setMutating(true);
+    setError(null);
+    try {
+      const result = await payParticipant(matchId, identity.member.matricule, paymentOutcome);
+      setPaymentResult(result);
+      await refresh();
+    } catch (caughtError) {
+      setError(caughtError instanceof ApiError ? caughtError.message : "The payment request failed.");
+    } finally {
+      setMutating(false);
+    }
+  }
+
   if (!Number.isInteger(matchId) || matchId <= 0) {
     return <ErrorState>A valid match ID is required to manage participants.</ErrorState>;
   }
   if (loading) return <LoadingState label="Loading match participants..." />;
-  const isOrganizer = participants.some(
-    (participant) => participant.isOrganizer && participant.matricule === identity?.member.matricule,
-  );
 
   return (
     <section className="content-card" aria-labelledby="participants-title">
@@ -66,6 +92,15 @@ export function MatchParticipantsPage() {
       <h2 id="participants-title">Match #{matchId} participants</h2>
       <p className="muted">Only the organizer can change pending non-organizer places.</p>
       {error && <ErrorState>{error}</ErrorState>}
+      {paymentResult && (
+        <div className={`payment-result ${paymentResult.outcome === "Failed" ? "payment-result-failed" : ""}`}>
+          <strong>Payment #{paymentResult.paymentId}: {paymentResult.outcome}</strong>
+          <span>
+            Place €{paymentResult.participantAmount.toFixed(2)} + debt €{paymentResult.debtAmount.toFixed(2)} = €{paymentResult.totalAmount.toFixed(2)}
+          </span>
+          {paymentResult.outcome === "Failed" && <span>The place remains pending; you can retry after reviewing the result.</span>}
+        </div>
+      )}
       {participants.length === 0 && <EmptyState>No participants were returned.</EmptyState>}
       <div className="participant-list">
         {participants.map((participant) => {
@@ -130,6 +165,23 @@ export function MatchParticipantsPage() {
           );
         })}
       </div>
+      {isOrganizer && organizerHasPendingPayment && (
+        <div className="payment-panel">
+          <label htmlFor="payment-outcome">Payment simulation outcome</label>
+          <select
+            id="payment-outcome"
+            value={paymentOutcome}
+            onChange={(event) => setPaymentOutcome(event.target.value as PaymentOutcome)}
+            disabled={mutating}
+          >
+            <option value="Succeeded">Succeeded</option>
+            <option value="Failed">Failed (demo)</option>
+          </select>
+          <button className="button" type="button" onClick={() => void handlePayment()} disabled={mutating}>
+            {mutating ? "Processing payment..." : "Pay pending place"}
+          </button>
+        </div>
+      )}
       {isOrganizer && <form
         onSubmit={(event) => {
           event.preventDefault();
