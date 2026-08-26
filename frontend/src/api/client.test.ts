@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { createReservation, getAvailability } from "./availability";
 import { apiRequest } from "./client";
+import { payParticipant } from "./payment";
 import {
   addPrivateParticipant,
   getPublicMatches,
@@ -142,5 +143,30 @@ describe("apiRequest", () => {
     expect(fetchMock.mock.calls[0][0]).toContain("/api/matches/public?matricule=G0001");
     expect(fetchMock.mock.calls[1][1]).toMatchObject({ method: "POST" });
     expect(fetchMock.mock.calls[1][0]).toContain("/api/matches/4/join?matricule=G0001");
+  });
+
+  it("serializes payment outcome and matricule", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          paymentId: 9,
+          matchId: 4,
+          matchParticipantId: 8,
+          participantAmount: 15,
+          debtAmount: 30,
+          totalAmount: 45,
+          outcome: "Failed",
+        }),
+        { status: 200 },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await payParticipant(4, "G0001", "Failed");
+
+    expect(fetchMock.mock.calls[0][0]).toContain(
+      "/api/matches/4/payment?matricule=G0001&outcome=Failed",
+    );
+    expect(fetchMock.mock.calls[0][1]).toMatchObject({ method: "POST" });
   });
 });
