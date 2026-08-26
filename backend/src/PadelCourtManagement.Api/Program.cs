@@ -23,6 +23,7 @@ builder.Services.AddScoped<IAdministrationService, AdministrationService>();
 
 builder.Services.AddApplicationServices();
 builder.Services.AddSingleton<IAvailabilityRepository, SqlAvailabilityRepository>();
+builder.Services.AddScoped<IMatchRepository, SqlMatchRepository>();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
@@ -290,6 +291,29 @@ availability.MapPost("/reservations", async (
     })
     .AddEndpointFilter<AdministrationExceptionFilter>()
     .WithName("CreateReservation");
+
+var matches = app.MapGroup("/api/matches")
+    .AddEndpointFilter<AdministrationExceptionFilter>();
+matches.MapGet("/public", async (
+    string matricule,
+    IMatchService service,
+    CancellationToken cancellationToken) =>
+    Results.Ok(await service.GetPublicMatchesAsync(matricule, cancellationToken)));
+matches.MapPost("/{matchId:int}/participants", async (
+    int matchId,
+    PrivateParticipantInput input,
+    IMatchService service,
+    CancellationToken cancellationToken) =>
+    {
+        await service.AddPrivateParticipantAsync(matchId, input, cancellationToken);
+        return Results.NoContent();
+    });
+matches.MapPost("/{matchId:int}/join", async (
+    int matchId,
+    string matricule,
+    IMatchService service,
+    CancellationToken cancellationToken) =>
+    Results.Ok(await service.JoinPublicMatchAsync(matchId, matricule, cancellationToken)));
 
 app.Run();
 
