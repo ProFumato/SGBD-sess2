@@ -181,6 +181,37 @@ input:disabled {
   color: #8a291c;
 }
 
+.slot-groups {
+  display: grid;
+  gap: 1.25rem;
+  margin-top: 1.5rem;
+}
+
+.slot-group h3 {
+  margin-bottom: 0.5rem;
+}
+
+.slot-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.slot-button {
+  padding: 0.65rem 0.8rem;
+  border: 1px solid #9caf9e;
+  border-radius: 0.5rem;
+  background: #fff;
+  color: inherit;
+  cursor: pointer;
+}
+
+.slot-button-selected {
+  border-color: #17633d;
+  background: #17633d;
+  color: #fff;
+}
+
 @media (max-width: 640px) {
   .app-header,
   .app-footer {

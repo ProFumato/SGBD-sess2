@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { createReservation, getAvailability } from "./availability";
 import { apiRequest } from "./client";
 
 describe("apiRequest", () => {
@@ -65,6 +66,36 @@ describe("apiRequest", () => {
       name: "ApiError",
       status: 200,
       message: "Unexpected token 'o', \"not-json\" is not valid JSON",
+    });
+  });
+
+  it("serializes availability filters and reservation payloads", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response("[]", { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ matchId: 4 }), { status: 201 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await getAvailability("G0001", 2, "2026-08-27");
+    await createReservation({
+      matricule: "G0001",
+      courtId: 3,
+      date: "2026-08-27",
+      startTime: "18:00:00",
+      visibility: "Private",
+    });
+
+    expect(fetchMock.mock.calls[0][0]).toContain(
+      "/api/availability?matricule=G0001&siteId=2&date=2026-08-27",
+    );
+    expect(fetchMock.mock.calls[1][1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        matricule: "G0001",
+        courtId: 3,
+        date: "2026-08-27",
+        startTime: "18:00:00",
+        visibility: "Private",
+      }),
     });
   });
 });

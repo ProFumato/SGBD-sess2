@@ -2,6 +2,7 @@ import { Link, Navigate, Route, Routes } from "react-router-dom";
 import { AppErrorBoundary } from "./components/ErrorBoundary";
 import { ErrorState } from "./components/Feedback";
 import { IdentityPage } from "./components/IdentityPage";
+import { ReservationPage } from "./components/ReservationPage";
 import { IdentityProvider, useIdentity } from "./state/identity";
 
 function App() {
@@ -35,6 +36,7 @@ function AppShell() {
           <Route path="/" element={<HomePage />} />
           <Route path="/identity" element={<IdentityPage />} />
           <Route path="/member" element={<MemberGuard />} />
+          <Route path="/member/reservations" element={<MemberReservationGuard />} />
           <Route path="/admin" element={<AdminGuard />} />
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
@@ -57,8 +59,17 @@ function MemberGuard() {
       <p className="muted">
         {identity.member.matricule} · {identity.member.membershipCategory} member
       </p>
+      <Link className="button" to="/member/reservations">
+        Find availability
+      </Link>
     </section>
   );
+}
+
+function MemberReservationGuard() {
+  const { identity } = useIdentity();
+  if (!identity || !identity.member.isActive) return <Navigate to="/identity" replace />;
+  return <ReservationPage />;
 }
 
 function AdminGuard() {
