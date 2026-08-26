@@ -1,8 +1,25 @@
+using System.Text.Json.Serialization;
+using PadelCourtManagement.Api;
 using PadelCourtManagement.Application;
+using PadelCourtManagement.Application.Administration;
 using PadelCourtManagement.Domain;
 using PadelCourtManagement.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.ConfigureHttpJsonOptions(options =>
+{
+    options.SerializerOptions.Converters.Add(new JsonStringEnumConverter());
+});
+builder.Services.AddSingleton<AdministrationAuthorizer>();
+builder.Services.AddScoped<SqlAdministrationRepository>();
+builder.Services.AddScoped<IMemberRepository>(sp => sp.GetRequiredService<SqlAdministrationRepository>());
+builder.Services.AddScoped<IAdministratorRepository>(sp => sp.GetRequiredService<SqlAdministrationRepository>());
+builder.Services.AddScoped<ISiteRepository>(sp => sp.GetRequiredService<SqlAdministrationRepository>());
+builder.Services.AddScoped<ICourtRepository>(sp => sp.GetRequiredService<SqlAdministrationRepository>());
+builder.Services.AddScoped<IScheduleRepository>(sp => sp.GetRequiredService<SqlAdministrationRepository>());
+builder.Services.AddScoped<IClosureRepository>(sp => sp.GetRequiredService<SqlAdministrationRepository>());
+builder.Services.AddScoped<IAdministrationService, AdministrationService>();
 
 builder.Services.AddApplicationServices();
 builder.Services.AddSingleton<IAvailabilityRepository, SqlAvailabilityRepository>();
@@ -24,41 +41,249 @@ if (app.Environment.IsDevelopment())
 app.MapGet("/health", () => Results.Ok(new { status = "Healthy" }))
     .WithName("HealthCheck");
 
-app.MapGroup("/api")
-    .MapGet("/availability", ([AsParameters] AvailabilityRequest request, IAvailabilityService service)
-        => Results.Ok(service.GetAvailability(request)))
-    .WithName("GetAvailability");
+var identity = app.MapGroup("/api/identity")
+    .AddEndpointFilter<AdministrationExceptionFilter>();
+identity.MapGet("/members/{matricule}", async (
+    string matricule,
+    IAdministrationService service,
+    CancellationToken cancellationToken) =>
+    Results.Ok(await service.IdentifyAsync(matricule, cancellationToken)))
+    .WithName("IdentifyMember");
 
-app.MapGroup("/api")
-    .MapPost("/reservations", (ReservationRequest request, IAvailabilityService service)
-        => Results.Ok(service.CreateReservation(request)))
+var administration = app.MapGroup("/api/admin")
+    .AddEndpointFilter<AdministrationExceptionFilter>();
+
+administration.MapGet("/members", async (
+    HttpContext context,
+    IAdministrationService service,
+    CancellationToken cancellationToken) =>
+    Results.Ok(await service.GetMembersAsync(context.GetActorMatricule(), cancellationToken)))
+    .WithName("ListMembers");
+
+administration.MapPost("/members", async (
+    HttpContext context,
+    MemberInput input,
+    IAdministrationService service,
+    CancellationToken cancellationToken) =>
+    Results.Created(
+        $"/api/identity/members/{input.Matricule}",
+        await service.CreateMemberAsync(context.GetActorMatricule(), input, cancellationToken)))
+    .WithName("CreateMember");
+
+administration.MapPut("/members/{matricule}", async (
+    HttpContext context,
+    string matricule,
+    MemberInput input,
+    IAdministrationService service,
+    CancellationToken cancellationToken) =>
+    Results.Ok(await service.UpdateMemberAsync(
+        context.GetActorMatricule(),
+        matricule,
+        input,
+        cancellationToken)))
+    .WithName("UpdateMember");
+
+administration.MapPut("/members/{matricule}/activation", async (
+    HttpContext context,
+    string matricule,
+    ActivationInput input,
+    IAdministrationService service,
+    CancellationToken cancellationToken) =>
+    {
+        await service.SetMemberActivationAsync(
+            context.GetActorMatricule(),
+            matricule,
+            input.IsActive,
+            cancellationToken);
+        return Results.NoContent();
+    })
+    .WithName("SetMemberActivation");
+
+administration.MapPut("/members/{matricule}/administrator-role", async (
+    HttpContext context,
+    string matricule,
+    AdministratorRoleInput input,
+    IAdministrationService service,
+    CancellationToken cancellationToken) =>
+    {
+        await service.SetAdministratorRoleAsync(
+            context.GetActorMatricule(),
+            matricule,
+            input,
+            cancellationToken);
+        return Results.NoContent();
+    })
+    .WithName("SetAdministratorRole");
+
+administration.MapDelete("/members/{matricule}/administrator-role", async (
+    HttpContext context,
+    string matricule,
+    IAdministrationService service,
+    CancellationToken cancellationToken) =>
+    {
+        await service.RemoveAdministratorRoleAsync(
+            context.GetActorMatricule(),
+            matricule,
+            cancellationToken);
+        return Results.NoContent();
+    })
+    .WithName("RemoveAdministratorRole");
+
+administration.MapGet("/sites", async (
+    HttpContext context,
+    IAdministrationService service,
+    CancellationToken cancellationToken) =>
+    Results.Ok(await service.GetSitesAsync(context.GetActorMatricule(), cancellationToken)))
+    .WithName("ListSites");
+
+administration.MapPost("/sites", async (
+    HttpContext context,
+    SiteInput input,
+    IAdministrationService service,
+    CancellationToken cancellationToken) =>
+    Results.Created(
+        "/api/admin/sites",
+        await service.CreateSiteAsync(context.GetActorMatricule(), input, cancellationToken)))
+    .WithName("CreateSite");
+
+administration.MapPut("/sites/{siteId:int}", async (
+    HttpContext context,
+    int siteId,
+    SiteInput input,
+    IAdministrationService service,
+    CancellationToken cancellationToken) =>
+    Results.Ok(await service.UpdateSiteAsync(
+        context.GetActorMatricule(),
+        siteId,
+        input,
+        cancellationToken)))
+    .WithName("UpdateSite");
+
+administration.MapGet("/sites/{siteId:int}/courts", async (
+    HttpContext context,
+    int siteId,
+    IAdministrationService service,
+    CancellationToken cancellationToken) =>
+    Results.Ok(await service.GetCourtsAsync(context.GetActorMatricule(), siteId, cancellationToken)))
+    .WithName("ListCourts");
+
+administration.MapPost("/sites/{siteId:int}/courts", async (
+    HttpContext context,
+    int siteId,
+    CourtInput input,
+    IAdministrationService service,
+    CancellationToken cancellationToken) =>
+    Results.Created(
+        $"/api/admin/sites/{siteId}/courts",
+        await service.CreateCourtAsync(context.GetActorMatricule(), siteId, input, cancellationToken)))
+    .WithName("CreateCourt");
+
+administration.MapPut("/courts/{courtId:int}", async (
+    HttpContext context,
+    int courtId,
+    CourtInput input,
+    IAdministrationService service,
+    CancellationToken cancellationToken) =>
+    Results.Ok(await service.UpdateCourtAsync(context.GetActorMatricule(), courtId, input, cancellationToken)))
+    .WithName("UpdateCourt");
+
+administration.MapGet("/sites/{siteId:int}/schedules", async (
+    HttpContext context,
+    int siteId,
+    IAdministrationService service,
+    CancellationToken cancellationToken) =>
+    Results.Ok(await service.GetSchedulesAsync(context.GetActorMatricule(), siteId, cancellationToken)))
+    .WithName("ListSchedules");
+
+administration.MapPut("/sites/{siteId:int}/schedules/{calendarYear:int}", async (
+    HttpContext context,
+    int siteId,
+    int calendarYear,
+    ScheduleInput input,
+    IAdministrationService service,
+    CancellationToken cancellationToken) =>
+    Results.Ok(await service.SetScheduleAsync(
+        context.GetActorMatricule(),
+        siteId,
+        calendarYear,
+        input,
+        cancellationToken)))
+    .WithName("SetSchedule");
+
+administration.MapDelete("/sites/{siteId:int}/schedules/{calendarYear:int}", async (
+    HttpContext context,
+    int siteId,
+    int calendarYear,
+    IAdministrationService service,
+    CancellationToken cancellationToken) =>
+    {
+        await service.DeleteScheduleAsync(
+            context.GetActorMatricule(),
+            siteId,
+            calendarYear,
+            cancellationToken);
+        return Results.NoContent();
+    })
+    .WithName("DeleteSchedule");
+
+administration.MapGet("/closures", async (
+    HttpContext context,
+    IAdministrationService service,
+    CancellationToken cancellationToken) =>
+    Results.Ok(await service.GetClosuresAsync(context.GetActorMatricule(), cancellationToken)))
+    .WithName("ListClosures");
+
+administration.MapPost("/closures", async (
+    HttpContext context,
+    ClosureInput input,
+    IAdministrationService service,
+    CancellationToken cancellationToken) =>
+    {
+        var closure = await service.CreateClosureAsync(
+            context.GetActorMatricule(),
+            input,
+            cancellationToken);
+        return Results.Created($"/api/admin/closures/{closure.ClosureId}", closure);
+    })
+    .WithName("CreateClosure");
+
+administration.MapPut("/closures/{closureId:int}", async (
+    HttpContext context,
+    int closureId,
+    ClosureInput input,
+    IAdministrationService service,
+    CancellationToken cancellationToken) =>
+    Results.Ok(await service.UpdateClosureAsync(
+        context.GetActorMatricule(),
+        closureId,
+        input,
+        cancellationToken)))
+    .WithName("UpdateClosure");
+
+administration.MapDelete("/closures/{closureId:int}", async (
+    HttpContext context,
+    int closureId,
+    IAdministrationService service,
+    CancellationToken cancellationToken) =>
+    {
+        await service.DeleteClosureAsync(
+            context.GetActorMatricule(),
+            closureId,
+            cancellationToken);
+        return Results.NoContent();
+    })
+    .WithName("DeleteClosure");
+
+var availability = app.MapGroup("/api");
+availability.MapGet("/availability", ([AsParameters] AvailabilityRequest request, IAvailabilityService service)
+    => Results.Ok(service.GetAvailability(request)))
+    .WithName("GetAvailability");
+availability.MapPost("/reservations", (ReservationRequest request, IAvailabilityService service)
+    => Results.Ok(service.CreateReservation(request)))
     .WithName("CreateReservation");
 
-var admin = app.MapGroup("/api");
-
-admin.MapGet("/members", (AdminApiService service) => Results.Ok(service.GetMembers())).WithName("GetMembers");
-admin.MapPost("/members", (MemberRequest request, AdminApiService service) => Results.Ok(service.CreateMember(request))).WithName("CreateMember");
-admin.MapPut("/members/{memberId:int}", (int memberId, MemberRequest request, AdminApiService service) => Results.Ok(service.UpdateMember(memberId, request))).WithName("UpdateMember");
-admin.MapDelete("/members/{memberId:int}", (int memberId, AdminApiService service) => { service.DeleteMember(memberId); return Results.NoContent(); }).WithName("DeleteMember");
-
-admin.MapGet("/sites", (AdminApiService service) => Results.Ok(service.GetSites())).WithName("GetSites");
-admin.MapPost("/sites", (SiteRequest request, AdminApiService service) => Results.Ok(service.CreateSite(request))).WithName("CreateSite");
-admin.MapPut("/sites/{siteId:int}", (int siteId, SiteRequest request, AdminApiService service) => Results.Ok(service.UpdateSite(siteId, request))).WithName("UpdateSite");
-admin.MapDelete("/sites/{siteId:int}", (int siteId, AdminApiService service) => { service.DeleteSite(siteId); return Results.NoContent(); }).WithName("DeleteSite");
-
-admin.MapGet("/courts", (AdminApiService service) => Results.Ok(service.GetCourts())).WithName("GetCourts");
-admin.MapPost("/courts", (CourtRequest request, AdminApiService service) => Results.Ok(service.CreateCourt(request))).WithName("CreateCourt");
-admin.MapPut("/courts/{courtId:int}", (int courtId, CourtRequest request, AdminApiService service) => Results.Ok(service.UpdateCourt(courtId, request))).WithName("UpdateCourt");
-admin.MapDelete("/courts/{courtId:int}", (int courtId, AdminApiService service) => { service.DeleteCourt(courtId); return Results.NoContent(); }).WithName("DeleteCourt");
-
-admin.MapGet("/schedules", (AdminApiService service) => Results.Ok(service.GetSchedules())).WithName("GetSchedules");
-admin.MapPost("/schedules", (ScheduleRequest request, AdminApiService service) => Results.Ok(service.CreateSchedule(request))).WithName("CreateSchedule");
-admin.MapPut("/schedules/{scheduleId:int}", (int scheduleId, ScheduleRequest request, AdminApiService service) => Results.Ok(service.UpdateSchedule(scheduleId, request))).WithName("UpdateSchedule");
-admin.MapDelete("/schedules/{scheduleId:int}", (int scheduleId, AdminApiService service) => { service.DeleteSchedule(scheduleId); return Results.NoContent(); }).WithName("DeleteSchedule");
-
-admin.MapGet("/closures", (AdminApiService service) => Results.Ok(service.GetClosures())).WithName("GetClosures");
-admin.MapPost("/closures", (ClosureRequest request, AdminApiService service) => Results.Ok(service.CreateClosure(request))).WithName("CreateClosure");
-admin.MapPut("/closures/{closureId:int}", (int closureId, ClosureRequest request, AdminApiService service) => Results.Ok(service.UpdateClosure(closureId, request))).WithName("UpdateClosure");
-admin.MapDelete("/closures/{closureId:int}", (int closureId, AdminApiService service) => { service.DeleteClosure(closureId); return Results.NoContent(); }).WithName("DeleteClosure");
-
 app.Run();
+
+public partial class Program;
+
+public sealed record ActivationInput(bool IsActive);
