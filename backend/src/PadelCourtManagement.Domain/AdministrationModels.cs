@@ -13,6 +13,11 @@ public enum AdministratorScope
     Site
 }
 
+public enum ClosureScope
+{
+    Global,
+    Site
+}
 public sealed record Member(
     int MemberId,
     string Matricule,
@@ -40,7 +45,7 @@ public sealed record SiteAnnualSchedule(
 
 public sealed record Closure(
     int ClosureId,
-    AdministratorScope Scope,
+    ClosureScope Scope,
     int? SiteId,
     DateTime StartsAt,
     DateTime EndsAt,

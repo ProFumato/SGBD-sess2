@@ -5,7 +5,14 @@ using PadelCourtManagement.Domain;
 
 namespace PadelCourtManagement.Infrastructure;
 
-public sealed class SqlAdministrationRepository(string connectionString) : IAdministrationRepository
+public sealed class SqlAdministrationRepository(
+    string connectionString) :
+    IMemberRepository,
+    IAdministratorRepository,
+    ISiteRepository,
+    ICourtRepository,
+    IScheduleRepository,
+    IClosureRepository
 {
     public async Task<AdministratorActor?> GetActiveAdministratorAsync(string matricule, CancellationToken cancellationToken)
     {
@@ -91,7 +98,6 @@ public sealed class SqlAdministrationRepository(string connectionString) : IAdmi
         {
             AddMemberParameters(command, input);
         }, cancellationToken);
-
         return await GetMemberByIdAsync(memberId, cancellationToken);
     }
 
@@ -409,7 +415,7 @@ public sealed class SqlAdministrationRepository(string connectionString) : IAdmi
 
         return await ExecuteBooleanAsync(sql, command =>
         {
-            Add(command, "@SiteId", SqlDbType.Int, input.Scope == AdministratorScope.Site ? input.SiteId : null);
+            Add(command, "@SiteId", SqlDbType.Int, input.Scope == ClosureScope.Site ? input.SiteId : null);
             Add(command, "@StartsAt", SqlDbType.DateTime2, input.StartsAt);
             Add(command, "@EndsAt", SqlDbType.DateTime2, input.EndsAt);
         }, cancellationToken);
@@ -504,21 +510,15 @@ public sealed class SqlAdministrationRepository(string connectionString) : IAdmi
     }
 
     private async Task<Site> GetSiteByIdAsync(int siteId, CancellationToken cancellationToken) =>
-        await GetSiteAsync(siteId, cancellationToken)
-        ?? throw new InvalidOperationException("The site could not be read after it was saved.");
+        await GetSiteAsync(siteId, cancellationToken) ?? throw new InvalidOperationException("The site could not be read after it was saved.");
 
     private async Task<Court> GetCourtByIdAsync(int courtId, CancellationToken cancellationToken) =>
-        await GetCourtAsync(courtId, cancellationToken)
-        ?? throw new InvalidOperationException("The court could not be read after it was saved.");
+        await GetCourtAsync(courtId, cancellationToken) ?? throw new InvalidOperationException("The court could not be read after it was saved.");
 
     private async Task<Closure> GetClosureByIdAsync(int closureId, CancellationToken cancellationToken) =>
-        await GetClosureAsync(closureId, cancellationToken)
-        ?? throw new InvalidOperationException("The closure could not be read after it was saved.");
+        await GetClosureAsync(closureId, cancellationToken) ?? throw new InvalidOperationException("The closure could not be read after it was saved.");
 
-    private async Task<int> ExecuteIdentityAsync(
-        string sql,
-        Action<SqlCommand> configure,
-        CancellationToken cancellationToken)
+    private async Task<int> ExecuteIdentityAsync(string sql, Action<SqlCommand> configure, CancellationToken cancellationToken)
     {
         await using var connection = CreateConnection();
         await connection.OpenAsync(cancellationToken);
@@ -608,7 +608,7 @@ public sealed class SqlAdministrationRepository(string connectionString) : IAdmi
 
     private static void AddClosureParameters(SqlCommand command, ClosureInput input)
     {
-        Add(command, "@Scope", SqlDbType.Char, ScopeToDatabase(input.Scope));
+        Add(command, "@Scope", SqlDbType.Char, ClosureScopeToDatabase(input.Scope));
         Add(command, "@SiteId", SqlDbType.Int, input.SiteId);
         Add(command, "@StartsAt", SqlDbType.DateTime2, input.StartsAt);
         Add(command, "@EndsAt", SqlDbType.DateTime2, input.EndsAt);
@@ -628,7 +628,7 @@ public sealed class SqlAdministrationRepository(string connectionString) : IAdmi
         new(
             reader.GetInt32(0),
             reader.GetString(1),
-            ScopeFromDatabase(reader.GetString(2)),
+            AdministratorScopeFromDatabase(reader.GetString(2)),
             reader.IsDBNull(3) ? null : reader.GetInt32(3));
 
     private static Site ReadSite(SqlDataReader reader) =>
@@ -648,7 +648,7 @@ public sealed class SqlAdministrationRepository(string connectionString) : IAdmi
     private static Closure ReadClosure(SqlDataReader reader) =>
         new(
             reader.GetInt32(0),
-            ScopeFromDatabase(reader.GetString(1)),
+            ClosureScopeFromDatabase(reader.GetString(1)),
             reader.IsDBNull(2) ? null : reader.GetInt32(2),
             reader.GetDateTime(3),
             reader.GetDateTime(4),
@@ -677,7 +677,21 @@ public sealed class SqlAdministrationRepository(string connectionString) : IAdmi
         _ => throw new ArgumentOutOfRangeException(nameof(scope))
     };
 
-    private static AdministratorScope ScopeFromDatabase(string scope) => scope switch
+    private static string ClosureScopeToDatabase(ClosureScope scope) => scope switch
+    {
+        ClosureScope.Global => "G",
+        ClosureScope.Site => "S",
+        _ => throw new ArgumentOutOfRangeException(nameof(scope))
+    };
+
+    private static ClosureScope ClosureScopeFromDatabase(string scope) => scope switch
+    {
+        "G" => ClosureScope.Global,
+        "S" => ClosureScope.Site,
+        _ => throw new InvalidOperationException("The database contains an unknown closure scope.")
+    };
+
+    private static AdministratorScope AdministratorScopeFromDatabase(string scope) => scope switch
     {
         "G" => AdministratorScope.Global,
         "S" => AdministratorScope.Site,

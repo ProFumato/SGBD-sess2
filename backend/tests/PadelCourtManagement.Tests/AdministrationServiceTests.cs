@@ -63,16 +63,41 @@ public sealed class AdministrationServiceTests
                 CancellationToken.None));
     }
 
-    private static AdministrationService CreateService(FakeAdministrationRepository repository) =>
-        new(repository, new AdministrationAuthorizer());
+    [Fact]
+    public async Task GlobalClosureConflictIsRejected()
+    {
+        var repository = new FakeAdministrationRepository
+        {
+            ActiveAdministrator = new AdministratorActor(1, "G0001", AdministratorScope.Global, null),
+            HasMatchOverlappingClosure = true
+        };
+        var service = CreateService(repository);
 
-    private sealed class FakeAdministrationRepository : IAdministrationRepository
+        await Assert.ThrowsAsync<AdministrationConflictException>(() =>
+            service.CreateClosureAsync(
+                "G0001",
+                new ClosureInput(ClosureScope.Global, null, DateTime.UtcNow.AddDays(1), DateTime.UtcNow.AddDays(1).AddHours(1), "Test"),
+                CancellationToken.None));
+    }
+
+    private static AdministrationService CreateService(FakeAdministrationRepository repository) =>
+        new(
+            repository,
+            repository,
+            repository,
+            repository,
+            repository,
+            repository,
+            new AdministrationAuthorizer());
+
+    private sealed class FakeAdministrationRepository : IMemberRepository, IAdministratorRepository, ISiteRepository, ICourtRepository, IScheduleRepository, IClosureRepository
     {
         public AdministratorActor? ActiveAdministrator { get; init; }
         public int ActiveGlobalAdministratorCount { get; init; }
         public Member? Member { get; init; }
         public Site? Site { get; init; }
         public bool HasMatchOutsideSchedule { get; init; }
+        public bool HasMatchOverlappingClosure { get; init; }
 
         public Task<AdministratorActor?> GetActiveAdministratorAsync(string matricule, CancellationToken cancellationToken) =>
             Task.FromResult(ActiveAdministrator);
@@ -91,6 +116,15 @@ public sealed class AdministrationServiceTests
 
         public Task<Member> UpdateMemberAsync(int memberId, MemberInput input, CancellationToken cancellationToken) =>
             Task.FromResult(Member!);
+
+        public Task<AdministratorActor?> GetActiveAdministratorAsync(string matricule, CancellationToken cancellationToken, bool dummy = false) =>
+            Task.FromResult(ActiveAdministrator);
+
+        public Task SetAdministratorRoleAsync(int memberId, AdministratorRoleInput input, CancellationToken cancellationToken) =>
+            Task.CompletedTask;
+
+        public Task RemoveAdministratorRoleAsync(int memberId, CancellationToken cancellationToken) =>
+            Task.CompletedTask;
 
         public Task<Site?> GetSiteAsync(int siteId, CancellationToken cancellationToken) =>
             Task.FromResult(Site);
@@ -116,22 +150,13 @@ public sealed class AdministrationServiceTests
         public Task<Court> UpdateCourtAsync(int courtId, CourtInput input, CancellationToken cancellationToken) =>
             throw new NotImplementedException();
 
-        public Task<bool> HasMatchOutsideScheduleAsync(
-            int siteId,
-            int calendarYear,
-            TimeOnly openingTime,
-            TimeOnly closingTime,
-            CancellationToken cancellationToken) =>
+        public Task<bool> HasMatchOutsideScheduleAsync(int siteId, int calendarYear, TimeOnly openingTime, TimeOnly closingTime, CancellationToken cancellationToken) =>
             Task.FromResult(HasMatchOutsideSchedule);
 
         public Task<IReadOnlyList<SiteAnnualSchedule>> GetSchedulesAsync(int siteId, CancellationToken cancellationToken) =>
             Task.FromResult<IReadOnlyList<SiteAnnualSchedule>>(Array.Empty<SiteAnnualSchedule>());
 
-        public Task<SiteAnnualSchedule> SetScheduleAsync(
-            int siteId,
-            int calendarYear,
-            ScheduleInput input,
-            CancellationToken cancellationToken) =>
+        public Task<SiteAnnualSchedule> SetScheduleAsync(int siteId, int calendarYear, ScheduleInput input, CancellationToken cancellationToken) =>
             throw new NotImplementedException();
 
         public Task DeleteScheduleAsync(int siteId, int calendarYear, CancellationToken cancellationToken) =>
@@ -144,7 +169,7 @@ public sealed class AdministrationServiceTests
             Task.FromResult<IReadOnlyList<Closure>>(Array.Empty<Closure>());
 
         public Task<bool> HasMatchOverlappingClosureAsync(ClosureInput input, CancellationToken cancellationToken) =>
-            Task.FromResult(false);
+            Task.FromResult(HasMatchOverlappingClosure);
 
         public Task<Closure> CreateClosureAsync(ClosureInput input, CancellationToken cancellationToken) =>
             throw new NotImplementedException();
@@ -153,12 +178,6 @@ public sealed class AdministrationServiceTests
             throw new NotImplementedException();
 
         public Task DeleteClosureAsync(int closureId, CancellationToken cancellationToken) =>
-            Task.CompletedTask;
-
-        public Task SetAdministratorRoleAsync(int memberId, AdministratorRoleInput input, CancellationToken cancellationToken) =>
-            Task.CompletedTask;
-
-        public Task RemoveAdministratorRoleAsync(int memberId, CancellationToken cancellationToken) =>
             Task.CompletedTask;
     }
 }

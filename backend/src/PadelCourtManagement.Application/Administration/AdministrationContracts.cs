@@ -20,7 +20,7 @@ public sealed record CourtInput(string Name, bool IsActive);
 public sealed record ScheduleInput(TimeOnly OpeningTime, TimeOnly ClosingTime);
 
 public sealed record ClosureInput(
-    AdministratorScope Scope,
+    ClosureScope Scope,
     int? SiteId,
     DateTime StartsAt,
     DateTime EndsAt,
@@ -28,34 +28,54 @@ public sealed record ClosureInput(
 
 public sealed record IdentityResult(Member Member, AdministratorActor? AdministratorRole);
 
-public interface IAdministrationRepository
+public interface IMemberRepository
 {
-    Task<AdministratorActor?> GetActiveAdministratorAsync(string matricule, CancellationToken cancellationToken);
-    Task<int> GetActiveGlobalAdministratorCountAsync(CancellationToken cancellationToken);
     Task<Member?> GetMemberByMatriculeAsync(string matricule, CancellationToken cancellationToken);
     Task<IReadOnlyList<Member>> GetMembersAsync(int? siteId, CancellationToken cancellationToken);
     Task<Member> CreateMemberAsync(MemberInput input, CancellationToken cancellationToken);
     Task<Member> UpdateMemberAsync(int memberId, MemberInput input, CancellationToken cancellationToken);
+}
+
+public interface IAdministratorRepository
+{
+    Task<AdministratorActor?> GetActiveAdministratorAsync(string matricule, CancellationToken cancellationToken);
+    Task<int> GetActiveGlobalAdministratorCountAsync(CancellationToken cancellationToken);
+    Task SetAdministratorRoleAsync(int memberId, AdministratorRoleInput input, CancellationToken cancellationToken);
+    Task RemoveAdministratorRoleAsync(int memberId, CancellationToken cancellationToken);
+}
+
+public interface ISiteRepository
+{
     Task<Site?> GetSiteAsync(int siteId, CancellationToken cancellationToken);
     Task<IReadOnlyList<Site>> GetSitesAsync(int? siteId, CancellationToken cancellationToken);
     Task<Site> CreateSiteAsync(SiteInput input, CancellationToken cancellationToken);
     Task<Site> UpdateSiteAsync(int siteId, SiteInput input, CancellationToken cancellationToken);
+}
+
+public interface ICourtRepository
+{
     Task<Court?> GetCourtAsync(int courtId, CancellationToken cancellationToken);
     Task<IReadOnlyList<Court>> GetCourtsAsync(int siteId, CancellationToken cancellationToken);
     Task<Court> CreateCourtAsync(int siteId, CourtInput input, CancellationToken cancellationToken);
     Task<Court> UpdateCourtAsync(int courtId, CourtInput input, CancellationToken cancellationToken);
+}
+
+public interface IScheduleRepository
+{
     Task<bool> HasMatchOutsideScheduleAsync(int siteId, int calendarYear, TimeOnly openingTime, TimeOnly closingTime, CancellationToken cancellationToken);
     Task<IReadOnlyList<SiteAnnualSchedule>> GetSchedulesAsync(int siteId, CancellationToken cancellationToken);
     Task<SiteAnnualSchedule> SetScheduleAsync(int siteId, int calendarYear, ScheduleInput input, CancellationToken cancellationToken);
     Task DeleteScheduleAsync(int siteId, int calendarYear, CancellationToken cancellationToken);
+}
+
+public interface IClosureRepository
+{
     Task<Closure?> GetClosureAsync(int closureId, CancellationToken cancellationToken);
     Task<IReadOnlyList<Closure>> GetClosuresAsync(int? siteId, CancellationToken cancellationToken);
     Task<bool> HasMatchOverlappingClosureAsync(ClosureInput input, CancellationToken cancellationToken);
     Task<Closure> CreateClosureAsync(ClosureInput input, CancellationToken cancellationToken);
     Task<Closure> UpdateClosureAsync(int closureId, ClosureInput input, CancellationToken cancellationToken);
     Task DeleteClosureAsync(int closureId, CancellationToken cancellationToken);
-    Task SetAdministratorRoleAsync(int memberId, AdministratorRoleInput input, CancellationToken cancellationToken);
-    Task RemoveAdministratorRoleAsync(int memberId, CancellationToken cancellationToken);
 }
 
 public interface IAdministrationService

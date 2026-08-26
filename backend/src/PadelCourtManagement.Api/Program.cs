@@ -10,9 +10,13 @@ builder.Services.ConfigureHttpJsonOptions(options =>
     options.SerializerOptions.Converters.Add(new JsonStringEnumConverter());
 });
 builder.Services.AddSingleton<AdministrationAuthorizer>();
-builder.Services.AddScoped<IAdministrationRepository>(_ =>
-    new SqlAdministrationRepository(
-        builder.Configuration.GetConnectionString("PadelCourtManagement") ?? string.Empty));
+builder.Services.AddScoped<SqlAdministrationRepository>();
+builder.Services.AddScoped<IMemberRepository>(sp => sp.GetRequiredService<SqlAdministrationRepository>());
+builder.Services.AddScoped<IAdministratorRepository>(sp => sp.GetRequiredService<SqlAdministrationRepository>());
+builder.Services.AddScoped<ISiteRepository>(sp => sp.GetRequiredService<SqlAdministrationRepository>());
+builder.Services.AddScoped<ICourtRepository>(sp => sp.GetRequiredService<SqlAdministrationRepository>());
+builder.Services.AddScoped<IScheduleRepository>(sp => sp.GetRequiredService<SqlAdministrationRepository>());
+builder.Services.AddScoped<IClosureRepository>(sp => sp.GetRequiredService<SqlAdministrationRepository>());
 builder.Services.AddScoped<IAdministrationService, AdministrationService>();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -26,6 +30,7 @@ app.UseSwaggerUI();
 app.MapGet("/health", () => Results.Ok(new { status = "Healthy" }))
     .WithName("HealthCheck");
 
+app.MapGet("/api/identity/members/{matricule}", async (
 var identity = app.MapGroup("/api/identity")
     .AddEndpointFilter<AdministrationExceptionFilter>();
 identity.MapGet("/members/{matricule}", async (
@@ -169,11 +174,7 @@ administration.MapPut("/courts/{courtId:int}", async (
     CourtInput input,
     IAdministrationService service,
     CancellationToken cancellationToken) =>
-    Results.Ok(await service.UpdateCourtAsync(
-        context.GetActorMatricule(),
-        courtId,
-        input,
-        cancellationToken)))
+    Results.Ok(await service.UpdateCourtAsync(context.GetActorMatricule(), courtId, input, cancellationToken)))
     .WithName("UpdateCourt");
 
 administration.MapGet("/sites/{siteId:int}/schedules", async (
