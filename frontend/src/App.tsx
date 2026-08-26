@@ -1,6 +1,7 @@
-import { Link, Route, Routes } from "react-router-dom";
+import { Link, Navigate, Route, Routes } from "react-router-dom";
 import { AppErrorBoundary } from "./components/ErrorBoundary";
-import { EmptyState, ErrorState } from "./components/Feedback";
+import { ErrorState } from "./components/Feedback";
+import { IdentityPage } from "./components/IdentityPage";
 import { IdentityProvider, useIdentity } from "./state/identity";
 
 function App() {
@@ -32,7 +33,9 @@ function AppShell() {
       <main className="app-main">
         <Routes>
           <Route path="/" element={<HomePage />} />
-          <Route path="/identity" element={<IdentityPlaceholder />} />
+          <Route path="/identity" element={<IdentityPage />} />
+          <Route path="/member" element={<MemberGuard />} />
+          <Route path="/admin" element={<AdminGuard />} />
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </main>
@@ -44,18 +47,32 @@ function AppShell() {
   );
 }
 
-function IdentityPlaceholder() {
+function MemberGuard() {
+  const { identity } = useIdentity();
+  if (!identity || !identity.member.isActive) return <Navigate to="/identity" replace />;
   return (
     <section className="content-card">
-      <p className="eyebrow">Iteration 1</p>
-      <h2>Member identification is coming next.</h2>
-      <EmptyState>
-        The foundation is ready. Matricule validation and identity lookup will be added in the
-        next frontend slice.
-      </EmptyState>
-      <Link className="button button-secondary" to="/">
-        Return home
-      </Link>
+      <p className="eyebrow">Member area</p>
+      <h2>Welcome, {identity.member.displayName}.</h2>
+      <p className="muted">
+        {identity.member.matricule} · {identity.member.membershipCategory} member
+      </p>
+    </section>
+  );
+}
+
+function AdminGuard() {
+  const { identity } = useIdentity();
+  if (!identity || !identity.member.isActive) return <Navigate to="/identity" replace />;
+  if (!identity.administratorRole) return <Navigate to="/member" replace />;
+  return (
+    <section className="content-card">
+      <p className="eyebrow">Administrator area</p>
+      <h2>Welcome, {identity.member.displayName}.</h2>
+      <p className="muted">
+        {identity.administratorRole.scope} administrator
+        {identity.administratorRole.siteId ? ` · site ${identity.administratorRole.siteId}` : ""}
+      </p>
     </section>
   );
 }
@@ -87,7 +104,7 @@ function HomePage() {
         {identity.member.matricule} · {identity.member.membershipCategory} member
       </p>
       <ErrorState>
-        Member workflows are not enabled yet. Continue with Iteration 1.
+        Member workflows are not enabled yet. Continue with the next frontend slice.
       </ErrorState>
     </section>
   );

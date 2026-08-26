@@ -131,6 +131,45 @@ a {
   color: #17633d;
 }
 
+form {
+  display: grid;
+  gap: 0.5rem;
+  max-width: 28rem;
+}
+
+input {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #9caf9e;
+  border-radius: 0.5rem;
+  background: #fff;
+  color: inherit;
+}
+
+input:focus-visible {
+  outline: 3px solid #d78b22;
+  outline-offset: 2px;
+}
+
+.identity-summary {
+  display: grid;
+  gap: 0.25rem;
+  margin-top: 1.5rem;
+  padding: 1rem;
+  border: 1px solid #d4e0d5;
+  border-radius: 0.5rem;
+}
+
+.identity-summary span {
+  color: #526057;
+}
+
+button:disabled,
+input:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
 .feedback {
   padding: 0.9rem 1rem;
   border-radius: 0.5rem;
