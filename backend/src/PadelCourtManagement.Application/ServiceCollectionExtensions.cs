@@ -6,7 +6,7 @@ public static class ServiceCollectionExtensions
 {
     public static IServiceCollection AddApplicationServices(this IServiceCollection services)
     {
-        services.AddSingleton<IAvailabilityService, AvailabilityService>();
+        services.AddScoped<IAvailabilityService, AvailabilityService>();
         services.AddScoped<IMatchService, MatchService>();
         services.AddScoped<IPaymentService, PaymentService>();
         return services;

@@ -12,7 +12,18 @@ builder.Services.ConfigureHttpJsonOptions(options =>
     options.SerializerOptions.Converters.Add(new JsonStringEnumConverter());
 });
 builder.Services.AddSingleton<AdministrationAuthorizer>();
-builder.Services.AddScoped<SqlAdministrationRepository>();
+builder.Services.AddScoped<SqlAdministrationRepository>(sp =>
+{
+    var connectionString = sp.GetRequiredService<IConfiguration>()
+        .GetConnectionString("PadelCourtManagement");
+    if (string.IsNullOrWhiteSpace(connectionString))
+    {
+        throw new InvalidOperationException(
+            "Missing connection string 'PadelCourtManagement'. Configure it through user secrets or environment variables.");
+    }
+
+    return new SqlAdministrationRepository(connectionString);
+});
 builder.Services.AddScoped<IMemberRepository>(sp => sp.GetRequiredService<SqlAdministrationRepository>());
 builder.Services.AddScoped<IAdministratorRepository>(sp => sp.GetRequiredService<SqlAdministrationRepository>());
 builder.Services.AddScoped<ISiteRepository>(sp => sp.GetRequiredService<SqlAdministrationRepository>());
@@ -22,7 +33,7 @@ builder.Services.AddScoped<IClosureRepository>(sp => sp.GetRequiredService<SqlAd
 builder.Services.AddScoped<IAdministrationService, AdministrationService>();
 
 builder.Services.AddApplicationServices();
-builder.Services.AddSingleton<IAvailabilityRepository, SqlAvailabilityRepository>();
+builder.Services.AddScoped<IAvailabilityRepository, SqlAvailabilityRepository>();
 builder.Services.AddScoped<IMatchRepository, SqlMatchRepository>();
 builder.Services.AddScoped<IPaymentRepository, SqlPaymentRepository>();
 builder.Services.AddEndpointsApiExplorer();

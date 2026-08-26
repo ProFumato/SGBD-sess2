@@ -20,7 +20,9 @@ BEGIN TRY
     IF OBJECT_ID(N'pcm.TR_AdministratorAssignment_RequireGlobalAdministrator', N'TR') IS NULL
        OR OBJECT_ID(N'pcm.TR_Member_RequireGlobalAdministrator', N'TR') IS NULL
        OR OBJECT_ID(N'pcm.TR_SiteAnnualSchedule_ValidateExistingMatches', N'TR') IS NULL
-        ;THROW 52009, 'The administration integrity triggers are missing.', 1;
+    BEGIN
+        THROW 52009, 'The administration integrity triggers are missing.', 1;
+    END;
 
     INSERT INTO [pcm].[Site] ([Name])
     VALUES (N'Database integration validation site');
@@ -33,7 +35,10 @@ BEGIN TRY
         THROW 52002, 'Global member with a home site was accepted.', 1;
     END TRY
     BEGIN CATCH
-        IF ERROR_NUMBER() <> 547 THROW;
+        IF ERROR_NUMBER() <> 547
+        BEGIN
+            THROW;
+        END;
     END CATCH;
 
     INSERT INTO [pcm].[Member] ([Matricule], [DisplayName], [MembershipCategory], [HomeSiteId])
@@ -61,7 +66,10 @@ BEGIN TRY
         THROW 52003, 'Invalid match duration was accepted.', 1;
     END TRY
     BEGIN CATCH
-        IF ERROR_NUMBER() <> 547 THROW;
+        IF ERROR_NUMBER() <> 547
+        BEGIN
+            THROW;
+        END;
     END CATCH;
 
     INSERT INTO [pcm].[Match] ([CourtId], [OrganizerMemberId], [StartsAt], [EndsAt], [Visibility])
@@ -83,10 +91,13 @@ BEGIN TRY
         SET [OpeningTime] = '10:30:00'
         WHERE [SiteId] = @SiteId
           AND [CalendarYear] = 2030;
-        ;THROW 52010, 'Schedule excluding an existing match was accepted.', 1;
+        THROW 52010, 'Schedule excluding an existing match was accepted.', 1;
     END TRY
     BEGIN CATCH
-        IF ERROR_NUMBER() <> 51007 THROW;
+        IF ERROR_NUMBER() <> 51007
+        BEGIN
+            THROW;
+        END;
     END CATCH;
 
     BEGIN TRY
@@ -95,7 +106,10 @@ BEGIN TRY
         THROW 52004, 'Match without the required 15-minute gap was accepted.', 1;
     END TRY
     BEGIN CATCH
-        IF ERROR_NUMBER() <> 51000 THROW;
+        IF ERROR_NUMBER() <> 51000
+        BEGIN
+            THROW;
+        END;
     END CATCH;
 
     BEGIN TRY
@@ -104,7 +118,10 @@ BEGIN TRY
         THROW 52005, 'Closure overlapping an existing match was accepted.', 1;
     END TRY
     BEGIN CATCH
-        IF ERROR_NUMBER() <> 51002 THROW;
+        IF ERROR_NUMBER() <> 51002
+        BEGIN
+            THROW;
+        END;
     END CATCH;
 
     INSERT INTO [pcm].[MatchParticipant] ([MatchId], [MemberId], [IsOrganizer])
@@ -123,7 +140,10 @@ BEGIN TRY
         THROW 52006, 'Fifth active participant was accepted.', 1;
     END TRY
     BEGIN CATCH
-        IF ERROR_NUMBER() <> 51003 THROW;
+        IF ERROR_NUMBER() <> 51003
+        BEGIN
+            THROW;
+        END;
     END CATCH;
 
     DECLARE @ParticipantId INT =
@@ -144,7 +164,10 @@ BEGIN TRY
         THROW 52007, 'Allocation for a failed payment was accepted.', 1;
     END TRY
     BEGIN CATCH
-        IF ERROR_NUMBER() <> 51004 THROW;
+        IF ERROR_NUMBER() <> 51004
+        BEGIN
+            THROW;
+        END;
     END CATCH;
 
     INSERT INTO [pcm].[Payment] ([PayerMemberId], [Amount], [PaymentStatus], [PaidAt])
@@ -161,7 +184,10 @@ BEGIN TRY
         THROW 52008, 'Payment over-allocation was accepted.', 1;
     END TRY
     BEGIN CATCH
-        IF ERROR_NUMBER() <> 51005 THROW;
+        IF ERROR_NUMBER() <> 51005
+        BEGIN
+            THROW;
+        END;
     END CATCH;
 
     DELETE [pcm].[PaymentAllocation]
