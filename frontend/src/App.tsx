@@ -4,6 +4,7 @@ import { ErrorState } from "./components/Feedback";
 import { IdentityPage } from "./components/IdentityPage";
 import { ReservationPage } from "./components/ReservationPage";
 import { MatchParticipantsPage } from "./components/MatchParticipantsPage";
+import { PublicMatchesPage } from "./components/PublicMatchesPage";
 import { IdentityProvider, useIdentity } from "./state/identity";
 
 function App() {
@@ -39,6 +40,7 @@ function AppShell() {
           <Route path="/member" element={<MemberGuard />} />
           <Route path="/member/reservations" element={<MemberReservationGuard />} />
           <Route path="/member/matches" element={<MemberMatchGuard />} />
+          <Route path="/member/public-matches" element={<MemberPublicMatchesGuard />} />
           <Route path="/admin" element={<AdminGuard />} />
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
@@ -64,6 +66,9 @@ function MemberGuard() {
       <Link className="button" to="/member/reservations">
         Find availability
       </Link>
+      <Link className="button button-secondary" to="/member/public-matches">
+        Find public matches
+      </Link>
     </section>
   );
 }
@@ -78,6 +83,12 @@ function MemberMatchGuard() {
   const { identity } = useIdentity();
   if (!identity || !identity.member.isActive) return <Navigate to="/identity" replace />;
   return <MatchParticipantsPage />;
+}
+
+function MemberPublicMatchesGuard() {
+  const { identity } = useIdentity();
+  if (!identity || !identity.member.isActive) return <Navigate to="/identity" replace />;
+  return <PublicMatchesPage />;
 }
 
 function AdminGuard() {
