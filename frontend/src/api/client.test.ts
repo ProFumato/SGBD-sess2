@@ -3,6 +3,8 @@ import { createReservation, getAvailability } from "./availability";
 import { apiRequest } from "./client";
 import {
   addPrivateParticipant,
+  getPublicMatches,
+  joinPublicMatch,
   removePrivateParticipant,
   replacePrivateParticipant,
 } from "./matches";
@@ -125,6 +127,20 @@ describe("apiRequest", () => {
       expect(fetchMock.mock.calls[3][1]).toMatchObject({
         method: "PUT",
         body: JSON.stringify({ organizerMatricule: "G0001", participantMatricule: "L00002" }),
+      });
     });
+
+  it("uses public match discovery and self-join contracts", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response("[]", { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ matchId: 4, paymentId: 9 }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await getPublicMatches("G0001");
+    await joinPublicMatch(4, "G0001");
+
+    expect(fetchMock.mock.calls[0][0]).toContain("/api/matches/public?matricule=G0001");
+    expect(fetchMock.mock.calls[1][1]).toMatchObject({ method: "POST" });
+    expect(fetchMock.mock.calls[1][0]).toContain("/api/matches/4/join?matricule=G0001");
   });
 });

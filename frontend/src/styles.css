@@ -218,6 +218,49 @@ input:disabled {
   margin: 1.5rem 0;
 }
 
+.filter-row {
+  display: grid;
+  gap: 0.5rem;
+  max-width: 28rem;
+  margin: 1.5rem 0;
+}
+
+.public-match-list {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.public-match-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem;
+  border: 1px solid #d4e0d5;
+  border-radius: 0.5rem;
+}
+
+.public-match-card h3 {
+  margin: 0;
+}
+
+.public-match-card p {
+  margin: 0.35rem 0;
+}
+
+.public-match-card .button {
+  flex-shrink: 0;
+  margin-top: 0;
+}
+
+@media (max-width: 640px) {
+  .public-match-card {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
+
 .participant-row {
   display: flex;
   align-items: center;

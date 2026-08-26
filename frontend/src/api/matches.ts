@@ -1,5 +1,31 @@
 import { apiRequest } from "./client";
 
+export interface PublicMatch {
+  matchId: number;
+  courtId: number;
+  courtName: string;
+  siteId: number;
+  startsAt: string;
+  endsAt: string;
+  availablePlaces: number;
+}
+
+export interface PublicMatchJoinResult {
+  matchId: number;
+  matchParticipantId: number;
+  paymentId: number;
+}
+
+export function getPublicMatches(matricule: string): Promise<PublicMatch[]> {
+  return apiRequest<PublicMatch[]>(`/api/matches/public?matricule=${encodeURIComponent(matricule)}`);
+}
+
+export function joinPublicMatch(matchId: number, matricule: string): Promise<PublicMatchJoinResult> {
+  return apiRequest<PublicMatchJoinResult>(`/api/matches/${matchId}/join?matricule=${encodeURIComponent(matricule)}`, {
+    method: "POST",
+  });
+}
+
 export interface MatchParticipant {
   matchParticipantId: number;
   memberId: number;
