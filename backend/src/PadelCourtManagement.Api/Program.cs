@@ -45,7 +45,10 @@ builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
-app.UseHttpsRedirection();
+if (!app.Environment.IsEnvironment("Testing"))
+{
+    app.UseHttpsRedirection();
+}
 
 if (app.Environment.IsDevelopment())
 {
