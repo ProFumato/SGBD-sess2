@@ -52,6 +52,7 @@ public sealed class SqlAvailabilityRepository : IAvailabilityRepository
         using var transaction = connection.BeginTransaction();
 
         var courtId = ResolveCourtId(connection, transaction, request.CourtCode);
+        EnsureCourtIsAvailable(connection, transaction, courtId, request.Start);
         var reservationCode = InsertMatch(connection, transaction, courtId, request);
         transaction.Commit();
 
@@ -95,5 +96,26 @@ public sealed class SqlAvailabilityRepository : IAvailabilityRepository
         }
 
         return (int)result;
+    }
+
+    private static void EnsureCourtIsAvailable(SqlConnection connection, SqlTransaction transaction, int courtId, DateTimeOffset start)
+    {
+        using var command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText = """
+            SELECT COUNT(1)
+            FROM [pcm].[Match]
+            WHERE [CourtId] = @CourtId
+              AND @StartsAt < DATEADD(MINUTE, 15, [EndsAt])
+              AND [StartsAt] < DATEADD(MINUTE, 15, DATEADD(MINUTE, 90, @StartsAt));
+            """;
+        command.Parameters.Add(new SqlParameter("@CourtId", SqlDbType.Int) { Value = courtId });
+        command.Parameters.Add(new SqlParameter("@StartsAt", SqlDbType.DateTime2) { Value = start.DateTime });
+
+        var conflicts = (int)command.ExecuteScalar()!;
+        if (conflicts > 0)
+        {
+            throw new InvalidOperationException("The court is already reserved for the requested time slot.");
+        }
     }
 }
