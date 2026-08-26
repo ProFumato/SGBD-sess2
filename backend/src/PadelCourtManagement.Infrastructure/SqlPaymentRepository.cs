@@ -37,7 +37,8 @@ public sealed class SqlPaymentRepository(IConfiguration configuration) : IPaymen
         int matchId,
         int memberId,
         DateTime paidAt,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        PaymentOutcome outcome = PaymentOutcome.Succeeded)
     {
         await using var connection = new SqlConnection(connectionString);
         await connection.OpenAsync(cancellationToken);
@@ -87,7 +88,7 @@ public sealed class SqlPaymentRepository(IConfiguration configuration) : IPaymen
 
             var debtIds = new List<int>();
             decimal debtAmount = 0m;
-            if (memberId == organizerId)
+            if (outcome == PaymentOutcome.Succeeded && memberId == organizerId)
             {
                 const string debtsSql = """
                     SELECT DebtId, OutstandingAmount
@@ -106,61 +107,72 @@ public sealed class SqlPaymentRepository(IConfiguration configuration) : IPaymen
             }
 
             const decimal participantAmount = 15.00m;
-            var totalAmount = participantAmount + debtAmount;
+            var totalAmount = outcome == PaymentOutcome.Succeeded
+                ? participantAmount + debtAmount
+                : participantAmount;
             int paymentId;
             const string paymentSql = """
                 INSERT INTO pcm.Payment (PayerMemberId, Amount, PaymentStatus, PaidAt)
                 OUTPUT INSERTED.PaymentId
-                VALUES (@MemberId, @Amount, 'Succeeded', @PaidAt);
+                VALUES (@MemberId, @Amount, @Status, @PaidAt);
                 """;
             await using (var payment = new SqlCommand(paymentSql, connection, transaction))
             {
                 payment.Parameters.Add("@MemberId", SqlDbType.Int).Value = memberId;
                 payment.Parameters.Add("@Amount", SqlDbType.Decimal).Value = totalAmount;
+                payment.Parameters.Add("@Status", SqlDbType.VarChar).Value =
+                    outcome == PaymentOutcome.Succeeded ? "Succeeded" : "Failed";
                 payment.Parameters.Add("@PaidAt", SqlDbType.DateTime2).Value = paidAt;
+                if (outcome == PaymentOutcome.Failed)
+                {
+                    payment.Parameters["@PaidAt"].Value = DBNull.Value;
+                }
                 payment.Parameters["@Amount"].Precision = 9;
                 payment.Parameters["@Amount"].Scale = 2;
                 paymentId = Convert.ToInt32(await payment.ExecuteScalarAsync(cancellationToken));
             }
 
-            const string participantAllocationSql = """
-                INSERT INTO pcm.PaymentAllocation (PaymentId, MatchParticipantId, Amount)
-                VALUES (@PaymentId, @ParticipantId, @Amount);
-                UPDATE pcm.MatchParticipant
-                SET ParticipationStatus = 'Confirmed'
-                WHERE MatchParticipantId = @ParticipantId;
-                """;
-            await using (var allocation = new SqlCommand(participantAllocationSql, connection, transaction))
+            if (outcome == PaymentOutcome.Succeeded)
             {
-                allocation.Parameters.Add("@PaymentId", SqlDbType.Int).Value = paymentId;
-                allocation.Parameters.Add("@ParticipantId", SqlDbType.Int).Value = participantId;
-                allocation.Parameters.Add("@Amount", SqlDbType.Decimal).Value = participantAmount;
-                allocation.Parameters["@Amount"].Precision = 9;
-                allocation.Parameters["@Amount"].Scale = 2;
-                await allocation.ExecuteNonQueryAsync(cancellationToken);
-            }
-
-            foreach (var debtId in debtIds)
-            {
-                const string debtSql = """
-                    INSERT INTO pcm.PaymentAllocation (PaymentId, DebtId, Amount)
-                    SELECT @PaymentId, DebtId, OutstandingAmount
-                    FROM pcm.Debt
-                    WHERE DebtId = @DebtId AND OutstandingAmount > 0;
-
-                    UPDATE pcm.Debt
-                    SET OutstandingAmount = 0, SettledAt = @PaidAt
-                    WHERE DebtId = @DebtId AND OutstandingAmount > 0;
+                const string participantAllocationSql = """
+                    INSERT INTO pcm.PaymentAllocation (PaymentId, MatchParticipantId, Amount)
+                    VALUES (@PaymentId, @ParticipantId, @Amount);
+                    UPDATE pcm.MatchParticipant
+                    SET ParticipationStatus = 'Confirmed'
+                    WHERE MatchParticipantId = @ParticipantId;
                     """;
-                await using var debt = new SqlCommand(debtSql, connection, transaction);
-                debt.Parameters.Add("@PaymentId", SqlDbType.Int).Value = paymentId;
-                debt.Parameters.Add("@DebtId", SqlDbType.Int).Value = debtId;
-                debt.Parameters.Add("@PaidAt", SqlDbType.DateTime2).Value = paidAt;
-                await debt.ExecuteNonQueryAsync(cancellationToken);
+                await using (var allocation = new SqlCommand(participantAllocationSql, connection, transaction))
+                {
+                    allocation.Parameters.Add("@PaymentId", SqlDbType.Int).Value = paymentId;
+                    allocation.Parameters.Add("@ParticipantId", SqlDbType.Int).Value = participantId;
+                    allocation.Parameters.Add("@Amount", SqlDbType.Decimal).Value = participantAmount;
+                    allocation.Parameters["@Amount"].Precision = 9;
+                    allocation.Parameters["@Amount"].Scale = 2;
+                    await allocation.ExecuteNonQueryAsync(cancellationToken);
+                }
+
+                foreach (var debtId in debtIds)
+                {
+                    const string debtSql = """
+                        INSERT INTO pcm.PaymentAllocation (PaymentId, DebtId, Amount)
+                        SELECT @PaymentId, DebtId, OutstandingAmount
+                        FROM pcm.Debt
+                        WHERE DebtId = @DebtId AND OutstandingAmount > 0;
+
+                        UPDATE pcm.Debt
+                        SET OutstandingAmount = 0, SettledAt = @PaidAt
+                        WHERE DebtId = @DebtId AND OutstandingAmount > 0;
+                        """;
+                    await using var debt = new SqlCommand(debtSql, connection, transaction);
+                    debt.Parameters.Add("@PaymentId", SqlDbType.Int).Value = paymentId;
+                    debt.Parameters.Add("@DebtId", SqlDbType.Int).Value = debtId;
+                    debt.Parameters.Add("@PaidAt", SqlDbType.DateTime2).Value = paidAt;
+                    await debt.ExecuteNonQueryAsync(cancellationToken);
+                }
             }
 
             await transaction.CommitAsync(cancellationToken);
-            return new PaymentResult(paymentId, matchId, participantId, participantAmount, debtAmount, totalAmount);
+            return new PaymentResult(paymentId, matchId, participantId, participantAmount, debtAmount, totalAmount, outcome);
         }
         catch
         {

@@ -7,7 +7,8 @@ public sealed class PaymentService(IPaymentRepository repository) : IPaymentServ
     public async Task<PaymentResult> PayParticipantAsync(
         int matchId,
         string matricule,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        PaymentOutcome outcome = PaymentOutcome.Succeeded)
     {
         if (matchId <= 0)
         {
@@ -32,6 +33,7 @@ public sealed class PaymentService(IPaymentRepository repository) : IPaymentServ
             matchId,
             member.MemberId,
             DateTime.UtcNow,
-            cancellationToken);
+            cancellationToken,
+            outcome);
     }
 }

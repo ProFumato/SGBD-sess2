@@ -376,9 +376,14 @@ matches.MapPost("/{matchId:int}/join", async (
 matches.MapPost("/{matchId:int}/payment", async (
     int matchId,
     string matricule,
+    PaymentOutcome? outcome,
     IPaymentService service,
     CancellationToken cancellationToken) =>
-    Results.Ok(await service.PayParticipantAsync(matchId, matricule, cancellationToken)));
+    Results.Ok(await service.PayParticipantAsync(
+        matchId,
+        matricule,
+        cancellationToken,
+        outcome ?? PaymentOutcome.Succeeded)));
 
 var processing = app.MapGroup("/api/processing")
     .AddEndpointFilter<AdministrationExceptionFilter>();

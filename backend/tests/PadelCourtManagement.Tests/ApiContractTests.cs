@@ -122,6 +122,16 @@ public sealed class ApiContractTests : IClassFixture<ApiFactory>
     }
 
     [Fact]
+    public async Task Payment_with_unknown_outcome_returns_bad_request()
+    {
+        var response = await client.PostAsync(
+            "/api/matches/999999/payment?matricule=G0001&outcome=NotARealOutcome",
+            content: null);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
     public async Task Public_join_for_unknown_match_returns_not_found()
     {
         var response = await client.PostAsync(

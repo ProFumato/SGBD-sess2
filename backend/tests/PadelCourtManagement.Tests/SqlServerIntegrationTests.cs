@@ -160,6 +160,61 @@ public sealed class SqlServerIntegrationTests
     }
 
     [Fact]
+    public async Task Failed_payment_is_recorded_without_allocation_or_debt_settlement()
+    {
+        var database = await IntegrationDatabase.CreateAsync();
+
+        try
+        {
+            var matchId = await database.CreateMatchAsync(
+                DateTime.Now.AddDays(2),
+                "Private",
+                database.MemberId);
+            var participantId = await database.CreateParticipantAsync(matchId, database.MemberId, true, "Pending");
+            await database.CreateDebtAsync(matchId, database.MemberId, 30m);
+
+            var result = await new PaymentService(new SqlPaymentRepository(database.Configuration))
+                .PayParticipantAsync(
+                    matchId,
+                    database.MemberMatricule,
+                    CancellationToken.None,
+                    PaymentOutcome.Failed);
+
+            Assert.Equal(PaymentOutcome.Failed, result.Outcome);
+            Assert.Equal(15m, result.TotalAmount);
+
+            var state = await database.QuerySingleAsync(
+                """
+                SELECT p.ParticipationStatus,
+                       d.OutstandingAmount,
+                       pay.PaymentStatus,
+                       pay.PaidAt,
+                       (SELECT COUNT(*) FROM pcm.PaymentAllocation AS pa WHERE pa.PaymentId = pay.PaymentId)
+                FROM pcm.MatchParticipant AS p
+                INNER JOIN pcm.Payment AS pay ON pay.PaymentId = @PaymentId
+                LEFT JOIN pcm.Debt AS d ON d.MatchId = @MatchId
+                WHERE p.MatchParticipantId = @ParticipantId;
+                """,
+                command =>
+                {
+                    command.Parameters.Add("@MatchId", SqlDbType.Int).Value = matchId;
+                    command.Parameters.Add("@ParticipantId", SqlDbType.Int).Value = participantId;
+                    command.Parameters.Add("@PaymentId", SqlDbType.Int).Value = result.PaymentId;
+                });
+
+            Assert.Equal("Pending", state[0]);
+            Assert.Equal(30m, state[1]);
+            Assert.Equal("Failed", state[2]);
+            Assert.Equal(DBNull.Value, state[3]);
+            Assert.Equal(0, state[4]);
+        }
+        finally
+        {
+            await database.DisposeAsync();
+        }
+    }
+
+    [Fact]
     public async Task Concurrent_private_participant_additions_stop_at_four_places()
     {
         var database = await IntegrationDatabase.CreateAsync();
