@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { createReservation, getAvailability } from "./availability";
+import { getMembers, setMemberActivation } from "./administration";
 import { apiRequest } from "./client";
 import { payParticipant } from "./payment";
 import {
@@ -168,5 +169,18 @@ describe("apiRequest", () => {
       "/api/matches/4/payment?matricule=G0001&outcome=Failed",
     );
     expect(fetchMock.mock.calls[0][1]).toMatchObject({ method: "POST" });
+  });
+
+  it("sends the administrator actor header for member operations", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response("[]", { status: 200 }))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await getMembers("G0001");
+    await setMemberActivation("G0001", "L00001", false);
+
+    expect((fetchMock.mock.calls[0][1].headers as Headers).get("X-Actor-Matricule")).toBe("G0001");
+    expect((fetchMock.mock.calls[1][1].headers as Headers).get("X-Actor-Matricule")).toBe("G0001");
   });
 });

@@ -5,6 +5,7 @@ import { IdentityPage } from "./components/IdentityPage";
 import { ReservationPage } from "./components/ReservationPage";
 import { MatchParticipantsPage } from "./components/MatchParticipantsPage";
 import { PublicMatchesPage } from "./components/PublicMatchesPage";
+import { AdminMembersPage } from "./components/AdminMembersPage";
 import { IdentityProvider, useIdentity } from "./state/identity";
 
 function App() {
@@ -42,6 +43,7 @@ function AppShell() {
           <Route path="/member/matches" element={<MemberMatchGuard />} />
           <Route path="/member/public-matches" element={<MemberPublicMatchesGuard />} />
           <Route path="/admin" element={<AdminGuard />} />
+          <Route path="/admin/members" element={<AdminMembersGuard />} />
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </main>
@@ -103,8 +105,16 @@ function AdminGuard() {
         {identity.administratorRole.scope} administrator
         {identity.administratorRole.siteId ? ` · site ${identity.administratorRole.siteId}` : ""}
       </p>
+      <Link className="button" to="/admin/members">Manage members and roles</Link>
     </section>
   );
+}
+
+function AdminMembersGuard() {
+  const { identity } = useIdentity();
+  if (!identity || !identity.member.isActive) return <Navigate to="/identity" replace />;
+  if (!identity.administratorRole) return <Navigate to="/member" replace />;
+  return <AdminMembersPage />;
 }
 
 function HomePage() {
