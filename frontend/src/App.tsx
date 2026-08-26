@@ -7,6 +7,7 @@ import { MatchParticipantsPage } from "./components/MatchParticipantsPage";
 import { PublicMatchesPage } from "./components/PublicMatchesPage";
 import { AdminMembersPage } from "./components/AdminMembersPage";
 import { AdminConfigurationPage } from "./components/AdminConfigurationPage";
+import { AdminStatisticsPage } from "./components/AdminStatisticsPage";
 import { IdentityProvider, useIdentity } from "./state/identity";
 
 function App() {
@@ -24,6 +25,13 @@ function AdminConfigurationGuard() {
   if (!identity || !identity.member.isActive) return <Navigate to="/identity" replace />;
   if (!identity.administratorRole) return <Navigate to="/member" replace />;
   return <AdminConfigurationPage />;
+}
+
+function AdminStatisticsGuard() {
+  const { identity } = useIdentity();
+  if (!identity || !identity.member.isActive) return <Navigate to="/identity" replace />;
+  if (!identity.administratorRole) return <Navigate to="/member" replace />;
+  return <AdminStatisticsPage />;
 }
 
 function AppShell() {
@@ -53,6 +61,7 @@ function AppShell() {
           <Route path="/admin" element={<AdminGuard />} />
           <Route path="/admin/members" element={<AdminMembersGuard />} />
           <Route path="/admin/configuration" element={<AdminConfigurationGuard />} />
+          <Route path="/admin/statistics" element={<AdminStatisticsGuard />} />
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </main>
@@ -75,10 +84,10 @@ function MemberGuard() {
         {identity.member.matricule} · {identity.member.membershipCategory} member
       </p>
       <Link className="button" to="/member/reservations">
-        Find availability
+        Create a game
       </Link>
       <Link className="button button-secondary" to="/member/public-matches">
-        Find public matches
+        Find and join public games
       </Link>
     </section>
   );
@@ -116,6 +125,7 @@ function AdminGuard() {
       </p>
       <Link className="button" to="/admin/members">Manage members and roles</Link>
       <Link className="button button-secondary" to="/admin/configuration">Manage sites and schedules</Link>
+      <Link className="button button-secondary" to="/admin/statistics">View statistics</Link>
     </section>
   );
 }
