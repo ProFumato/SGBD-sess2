@@ -119,6 +119,7 @@ public sealed class AvailabilityServiceTests
             string matricule,
             int courtId,
             DateTime startAt,
+            DateTime now,
             CancellationToken cancellationToken) =>
             Task.FromResult(Context);
 
