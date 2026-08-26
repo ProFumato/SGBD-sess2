@@ -1,0 +1,149 @@
+:root {
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  color: #17211b;
+  background: #eef3ee;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+}
+
+button,
+a {
+  font: inherit;
+}
+
+a {
+  color: #17633d;
+  font-weight: 700;
+}
+
+.app-shell {
+  display: flex;
+  min-height: 100vh;
+  flex-direction: column;
+}
+
+.app-header,
+.app-main,
+.app-footer {
+  width: min(1100px, calc(100% - 2rem));
+  margin-inline: auto;
+}
+
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 2rem 0;
+}
+
+.app-main {
+  flex: 1;
+  padding: 2rem 0 4rem;
+}
+
+.app-footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 0 2rem;
+  color: #526057;
+  font-size: 0.875rem;
+}
+
+.hero-card,
+.content-card {
+  max-width: 720px;
+  padding: clamp(1.5rem, 5vw, 4rem);
+  border: 1px solid #d4e0d5;
+  border-radius: 1.25rem;
+  background: #fff;
+  box-shadow: 0 1rem 3rem rgb(31 57 40 / 8%);
+}
+
+.hero-card h2,
+.content-card h2 {
+  max-width: 16ch;
+  margin: 0.25rem 0 1rem;
+  font-size: clamp(2rem, 6vw, 4rem);
+  line-height: 1.05;
+}
+
+.content-card h2 {
+  font-size: clamp(1.75rem, 4vw, 2.75rem);
+}
+
+.hero-card p,
+.content-card p {
+  max-width: 60ch;
+  line-height: 1.6;
+}
+
+.eyebrow {
+  margin: 0;
+  color: #17633d;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.app-header h1 {
+  margin: 0.25rem 0 0;
+  font-size: clamp(1.25rem, 3vw, 2rem);
+}
+
+.muted {
+  color: #526057;
+}
+
+.button {
+  display: inline-block;
+  margin-top: 1rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid #17633d;
+  border-radius: 0.5rem;
+  background: #17633d;
+  color: #fff;
+  cursor: pointer;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.button-secondary {
+  margin-top: 0;
+  background: transparent;
+  color: #17633d;
+}
+
+.feedback {
+  padding: 0.9rem 1rem;
+  border-radius: 0.5rem;
+  background: #eef3ee;
+}
+
+.feedback-error {
+  background: #fff0ed;
+  color: #8a291c;
+}
+
+@media (max-width: 640px) {
+  .app-header,
+  .app-footer {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .app-footer {
+    gap: 0.35rem;
+  }
+}
