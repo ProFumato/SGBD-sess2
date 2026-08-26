@@ -20,6 +20,12 @@ a {
   font: inherit;
 }
 
+button:focus-visible,
+a:focus-visible {
+  outline: 3px solid #d78b22;
+  outline-offset: 3px;
+}
+
 a {
   color: #17633d;
   font-weight: 700;

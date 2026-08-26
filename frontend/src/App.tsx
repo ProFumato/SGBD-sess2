@@ -1,11 +1,14 @@
 import { Link, Route, Routes } from "react-router-dom";
-import { ErrorState } from "./components/Feedback";
+import { AppErrorBoundary } from "./components/ErrorBoundary";
+import { EmptyState, ErrorState } from "./components/Feedback";
 import { IdentityProvider, useIdentity } from "./state/identity";
 
 function App() {
   return (
     <IdentityProvider>
-      <AppShell />
+      <AppErrorBoundary>
+        <AppShell />
+      </AppErrorBoundary>
     </IdentityProvider>
   );
 }
@@ -29,6 +32,7 @@ function AppShell() {
       <main className="app-main">
         <Routes>
           <Route path="/" element={<HomePage />} />
+          <Route path="/identity" element={<IdentityPlaceholder />} />
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </main>
@@ -37,6 +41,22 @@ function AppShell() {
         <span>Times are shown in Europe/Brussels.</span>
       </footer>
     </div>
+  );
+}
+
+function IdentityPlaceholder() {
+  return (
+    <section className="content-card">
+      <p className="eyebrow">Iteration 1</p>
+      <h2>Member identification is coming next.</h2>
+      <EmptyState>
+        The foundation is ready. Matricule validation and identity lookup will be added in the
+        next frontend slice.
+      </EmptyState>
+      <Link className="button button-secondary" to="/">
+        Return home
+      </Link>
+    </section>
   );
 }
 

@@ -28,7 +28,7 @@ export interface ApiRequestOptions extends Omit<RequestInit, "body" | "method"> 
   signal?: AbortSignal;
 }
 
-const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL ?? "http://localhost:5000").replace(/\/$/, "");
+const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL ?? "http://localhost:5065").replace(/\/$/, "");
 
 export async function apiRequest<T>(
   path: string,
@@ -60,7 +60,14 @@ export async function apiRequest<T>(
     return undefined as T;
   }
 
-  return (await response.json()) as T;
+  try {
+    return (await response.json()) as T;
+  } catch (error) {
+    throw new ApiError(response.status, {
+      title: "Invalid API response",
+      detail: error instanceof Error ? error.message : "The server returned invalid JSON.",
+    });
+  }
 }
 
 async function readProblem(response: Response): Promise<ApiProblem | undefined> {

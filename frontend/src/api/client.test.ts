@@ -49,4 +49,22 @@ describe("apiRequest", () => {
       message: "Not allowed.",
     });
   });
+
+  it("reports invalid successful JSON responses instead of hiding them", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response("not-json", {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      ),
+    );
+
+    await expect(apiRequest("/api/example")).rejects.toMatchObject({
+      name: "ApiError",
+      status: 200,
+      message: "Unexpected token 'o', \"not-json\" is not valid JSON",
+    });
+  });
 });
