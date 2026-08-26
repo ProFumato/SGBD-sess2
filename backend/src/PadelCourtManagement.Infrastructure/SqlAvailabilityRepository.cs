@@ -117,24 +117,24 @@ public sealed class SqlAvailabilityRepository : IAvailabilityRepository
             SELECT m.MemberId, m.MembershipCategory, m.HomeSiteId, m.IsActive,
                    c.CourtId, c.SiteId, c.IsActive,
                    schedule.OpeningTime, schedule.ClosingTime,
-                   CASE WHEN EXISTS
+                   CAST(CASE WHEN EXISTS
                    (
                        SELECT 1
                        FROM pcm.Closure AS cl
                        WHERE (cl.Scope = 'G' OR cl.SiteId = c.SiteId)
                          AND @StartsAt < cl.EndsAt
                          AND cl.StartsAt < DATEADD(MINUTE, 90, @StartsAt)
-                   ) THEN 1 ELSE 0 END,
-                   CASE WHEN EXISTS
+                   ) THEN 1 ELSE 0 END AS bit),
+                   CAST(CASE WHEN EXISTS
                    (
                        SELECT 1 FROM pcm.Debt
                        WHERE OrganizerMemberId = m.MemberId AND OutstandingAmount > 0
-                   ) THEN 1 ELSE 0 END,
-                   CASE WHEN EXISTS
+                   ) THEN 1 ELSE 0 END AS bit),
+                   CAST(CASE WHEN EXISTS
                    (
                        SELECT 1 FROM pcm.BookingBan
                        WHERE MemberId = m.MemberId AND StartsAt <= @Now AND EndsAt > @Now
-                   ) THEN 1 ELSE 0 END
+                   ) THEN 1 ELSE 0 END AS bit)
             FROM pcm.Member AS m
             CROSS JOIN pcm.Court AS c
             OUTER APPLY
@@ -270,9 +270,11 @@ public sealed class SqlAvailabilityRepository : IAvailabilityRepository
         CancellationToken cancellationToken)
     {
         const string sql = """
+            DECLARE @InsertedMatch TABLE (MatchId INT);
             INSERT INTO pcm.Match (CourtId, OrganizerMemberId, StartsAt, EndsAt, Visibility)
-            OUTPUT INSERTED.MatchId
+            OUTPUT INSERTED.MatchId INTO @InsertedMatch
             VALUES (@CourtId, @MemberId, @StartsAt, DATEADD(MINUTE, 90, @StartsAt), @Visibility);
+            SELECT MatchId FROM @InsertedMatch;
             """;
 
         await using var commandSql = CreateCommand(connection, sql, transaction);
