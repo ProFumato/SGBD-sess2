@@ -36,6 +36,7 @@ builder.Services.AddApplicationServices();
 builder.Services.AddScoped<IAvailabilityRepository, SqlAvailabilityRepository>();
 builder.Services.AddScoped<IMatchRepository, SqlMatchRepository>();
 builder.Services.AddScoped<IPaymentRepository, SqlPaymentRepository>();
+builder.Services.AddScoped<IDayBeforeRepository, SqlDayBeforeRepository>();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
@@ -359,6 +360,24 @@ matches.MapPost("/{matchId:int}/payment", async (
     IPaymentService service,
     CancellationToken cancellationToken) =>
     Results.Ok(await service.PayParticipantAsync(matchId, matricule, cancellationToken)));
+
+var processing = app.MapGroup("/api/processing")
+    .AddEndpointFilter<AdministrationExceptionFilter>();
+processing.MapPost("/day-before", async (
+    HttpContext context,
+    IDayBeforeService service,
+    CancellationToken cancellationToken) =>
+    {
+        var actor = context.GetActorMatricule();
+        var identityService = context.RequestServices.GetRequiredService<IAdministrationService>();
+        var identity = await identityService.IdentifyAsync(actor, cancellationToken);
+        if (identity.AdministratorRole is not { Scope: AdministratorScope.Global })
+        {
+            throw new AdministrationForbiddenException("Only a global administrator can run day-before processing.");
+        }
+
+        return Results.Ok(await service.ProcessAsync(DateTimeOffset.UtcNow, cancellationToken));
+    });
 
 app.Run();
 
