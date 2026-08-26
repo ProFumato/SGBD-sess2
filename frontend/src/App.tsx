@@ -3,6 +3,7 @@ import { AppErrorBoundary } from "./components/ErrorBoundary";
 import { ErrorState } from "./components/Feedback";
 import { IdentityPage } from "./components/IdentityPage";
 import { ReservationPage } from "./components/ReservationPage";
+import { MatchParticipantsPage } from "./components/MatchParticipantsPage";
 import { IdentityProvider, useIdentity } from "./state/identity";
 
 function App() {
@@ -37,6 +38,7 @@ function AppShell() {
           <Route path="/identity" element={<IdentityPage />} />
           <Route path="/member" element={<MemberGuard />} />
           <Route path="/member/reservations" element={<MemberReservationGuard />} />
+          <Route path="/member/matches" element={<MemberMatchGuard />} />
           <Route path="/admin" element={<AdminGuard />} />
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
@@ -70,6 +72,12 @@ function MemberReservationGuard() {
   const { identity } = useIdentity();
   if (!identity || !identity.member.isActive) return <Navigate to="/identity" replace />;
   return <ReservationPage />;
+}
+
+function MemberMatchGuard() {
+  const { identity } = useIdentity();
+  if (!identity || !identity.member.isActive) return <Navigate to="/identity" replace />;
+  return <MatchParticipantsPage />;
 }
 
 function AdminGuard() {
