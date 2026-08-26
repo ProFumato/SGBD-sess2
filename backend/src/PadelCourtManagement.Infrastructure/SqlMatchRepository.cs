@@ -76,6 +76,122 @@ public sealed class SqlMatchRepository(IConfiguration configuration) : IMatchRep
         }
     }
 
+    public async Task<IReadOnlyList<MatchParticipantDetails>> GetPrivateParticipantsAsync(
+        int matchId,
+        int organizerMemberId,
+        CancellationToken cancellationToken)
+    {
+        const string sql = """
+            SELECT p.MatchParticipantId, p.MemberId, member.Matricule, member.DisplayName,
+                   p.IsOrganizer, p.ParticipationStatus
+            FROM pcm.MatchParticipant AS p
+            INNER JOIN pcm.Member AS member ON member.MemberId = p.MemberId
+            INNER JOIN pcm.Match AS match ON match.MatchId = p.MatchId
+            WHERE p.MatchId = @MatchId
+              AND match.OrganizerMemberId = @OrganizerMemberId
+              AND match.Visibility = 'Private'
+            ORDER BY p.IsOrganizer DESC, p.AddedAt;
+            """;
+        await using var connection = new SqlConnection(connectionString);
+        await connection.OpenAsync(cancellationToken);
+        await using var command = new SqlCommand(sql, connection);
+        command.Parameters.Add("@MatchId", SqlDbType.Int).Value = matchId;
+        command.Parameters.Add("@OrganizerMemberId", SqlDbType.Int).Value = organizerMemberId;
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        var participants = new List<MatchParticipantDetails>();
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            participants.Add(new MatchParticipantDetails(
+                reader.GetInt32(0),
+                reader.GetInt32(1),
+                reader.GetString(2),
+                reader.GetString(3),
+                reader.GetBoolean(4),
+                reader.GetString(5)));
+        }
+
+        return participants;
+    }
+
+    public async Task RemovePrivateParticipantAsync(
+        int matchId,
+        int participantId,
+        int organizerMemberId,
+        DateTime now,
+        CancellationToken cancellationToken)
+    {
+        const string sql = """
+            UPDATE participant
+            SET ParticipationStatus = 'Removed'
+            FROM pcm.MatchParticipant AS participant
+            INNER JOIN pcm.Match AS match ON match.MatchId = participant.MatchId
+            WHERE participant.MatchParticipantId = @ParticipantId
+              AND participant.MatchId = @MatchId
+              AND participant.IsOrganizer = 0
+              AND participant.ParticipationStatus = 'Pending'
+              AND match.OrganizerMemberId = @OrganizerMemberId
+              AND match.Visibility = 'Private'
+              AND match.StartsAt > @Now;
+            """;
+        await using var connection = new SqlConnection(connectionString);
+        await connection.OpenAsync(cancellationToken);
+        await using var command = new SqlCommand(sql, connection);
+        command.Parameters.Add("@ParticipantId", SqlDbType.Int).Value = participantId;
+        command.Parameters.Add("@MatchId", SqlDbType.Int).Value = matchId;
+        command.Parameters.Add("@OrganizerMemberId", SqlDbType.Int).Value = organizerMemberId;
+        command.Parameters.Add("@Now", SqlDbType.DateTime2).Value = now;
+        if (await command.ExecuteNonQueryAsync(cancellationToken) == 0)
+        {
+            throw new ReservationConflictException(
+                "Only a pending non-organizer participant can be removed before the match.");
+        }
+    }
+
+    public async Task ReplacePrivateParticipantAsync(
+        int matchId,
+        int participantId,
+        int organizerMemberId,
+        int replacementMemberId,
+        DateTime now,
+        CancellationToken cancellationToken)
+    {
+        const string sql = """
+            UPDATE participant
+            SET MemberId = @ReplacementMemberId,
+                ParticipationStatus = 'Pending',
+                AddedAt = SYSUTCDATETIME()
+            FROM pcm.MatchParticipant AS participant
+            INNER JOIN pcm.Match AS match ON match.MatchId = participant.MatchId
+            WHERE participant.MatchParticipantId = @ParticipantId
+              AND participant.MatchId = @MatchId
+              AND participant.IsOrganizer = 0
+              AND participant.ParticipationStatus = 'Pending'
+              AND match.OrganizerMemberId = @OrganizerMemberId
+              AND match.Visibility = 'Private'
+              AND match.StartsAt > @Now;
+            """;
+        await using var connection = new SqlConnection(connectionString);
+        await connection.OpenAsync(cancellationToken);
+        await using var command = new SqlCommand(sql, connection);
+        command.Parameters.Add("@ParticipantId", SqlDbType.Int).Value = participantId;
+        command.Parameters.Add("@MatchId", SqlDbType.Int).Value = matchId;
+        command.Parameters.Add("@OrganizerMemberId", SqlDbType.Int).Value = organizerMemberId;
+        command.Parameters.Add("@ReplacementMemberId", SqlDbType.Int).Value = replacementMemberId;
+        command.Parameters.Add("@Now", SqlDbType.DateTime2).Value = now;
+        try
+        {
+            if (await command.ExecuteNonQueryAsync(cancellationToken) == 0)
+            {
+                throw new ReservationConflictException(
+                    "Only a pending non-organizer participant can be replaced before the match.");
+            }
+        }
+        catch (SqlException exception) when (exception.Number is 2601 or 2627)
+        {
+            throw new ReservationConflictException("The replacement member already participates in this match.");
+        }
+    }
+
     public async Task<IReadOnlyList<PublicMatch>> GetPublicMatchesAsync(DateTime now, CancellationToken cancellationToken)
     {
         const string sql = """

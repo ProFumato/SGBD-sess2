@@ -320,6 +320,32 @@ matches.MapPost("/{matchId:int}/participants", async (
         await service.AddPrivateParticipantAsync(matchId, input, cancellationToken);
         return Results.NoContent();
     });
+matches.MapGet("/{matchId:int}/participants", async (
+    int matchId,
+    string matricule,
+    IMatchService service,
+    CancellationToken cancellationToken) =>
+    Results.Ok(await service.GetPrivateParticipantsAsync(matchId, matricule, cancellationToken)));
+matches.MapDelete("/{matchId:int}/participants/{participantId:int}", async (
+    int matchId,
+    int participantId,
+    string matricule,
+    IMatchService service,
+    CancellationToken cancellationToken) =>
+    {
+        await service.RemovePrivateParticipantAsync(matchId, participantId, matricule, cancellationToken);
+        return Results.NoContent();
+    });
+matches.MapPut("/{matchId:int}/participants/{participantId:int}", async (
+    int matchId,
+    int participantId,
+    PrivateParticipantInput input,
+    IMatchService service,
+    CancellationToken cancellationToken) =>
+    {
+        await service.ReplacePrivateParticipantAsync(matchId, participantId, input, cancellationToken);
+        return Results.NoContent();
+    });
 matches.MapPost("/{matchId:int}/join", async (
     int matchId,
     string matricule,
