@@ -24,6 +24,7 @@ builder.Services.AddScoped<IAdministrationService, AdministrationService>();
 builder.Services.AddApplicationServices();
 builder.Services.AddSingleton<IAvailabilityRepository, SqlAvailabilityRepository>();
 builder.Services.AddScoped<IMatchRepository, SqlMatchRepository>();
+builder.Services.AddScoped<IPaymentRepository, SqlPaymentRepository>();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
@@ -314,6 +315,13 @@ matches.MapPost("/{matchId:int}/join", async (
     IMatchService service,
     CancellationToken cancellationToken) =>
     Results.Ok(await service.JoinPublicMatchAsync(matchId, matricule, cancellationToken)));
+
+matches.MapPost("/{matchId:int}/payment", async (
+    int matchId,
+    string matricule,
+    IPaymentService service,
+    CancellationToken cancellationToken) =>
+    Results.Ok(await service.PayParticipantAsync(matchId, matricule, cancellationToken)));
 
 app.Run();
 
