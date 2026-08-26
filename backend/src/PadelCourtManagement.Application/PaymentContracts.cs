@@ -7,7 +7,8 @@ public interface IPaymentService
     Task<PaymentResult> PayParticipantAsync(
         int matchId,
         string matricule,
-        CancellationToken cancellationToken);
+        CancellationToken cancellationToken,
+        PaymentOutcome outcome = PaymentOutcome.Succeeded);
 }
 
 public interface IPaymentRepository
@@ -17,5 +18,6 @@ public interface IPaymentRepository
         int matchId,
         int memberId,
         DateTime paidAt,
-        CancellationToken cancellationToken);
+        CancellationToken cancellationToken,
+        PaymentOutcome outcome = PaymentOutcome.Succeeded);
 }
