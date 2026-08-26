@@ -39,6 +39,7 @@ builder.Services.AddScoped<IAvailabilityRepository, SqlAvailabilityRepository>()
 builder.Services.AddScoped<IMatchRepository, SqlMatchRepository>();
 builder.Services.AddScoped<IPaymentRepository, SqlPaymentRepository>();
 builder.Services.AddScoped<IDayBeforeRepository, SqlDayBeforeRepository>();
+builder.Services.AddScoped<IStatisticsRepository, SqlStatisticsRepository>();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
@@ -306,6 +307,19 @@ availability.MapPost("/reservations", async (
     })
     .AddEndpointFilter<AdministrationExceptionFilter>()
     .WithName("CreateReservation");
+
+var statistics = app.MapGroup("/api/admin/statistics")
+    .AddEndpointFilter<AdministrationExceptionFilter>();
+statistics.MapGet("/", async (
+    HttpContext context,
+    [AsParameters] StatisticsRequest request,
+    IStatisticsService service,
+    CancellationToken cancellationToken) =>
+    Results.Ok(await service.GetAsync(
+       context.GetActorMatricule(),
+       request,
+       cancellationToken)))
+    .WithName("GetStatistics");
 
 var matches = app.MapGroup("/api/matches")
     .AddEndpointFilter<AdministrationExceptionFilter>();

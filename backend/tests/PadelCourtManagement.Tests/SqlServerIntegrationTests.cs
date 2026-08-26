@@ -2,6 +2,7 @@ using System.Data;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Configuration;
 using PadelCourtManagement.Application;
+using PadelCourtManagement.Application.Administration;
 using PadelCourtManagement.Domain;
 using PadelCourtManagement.Infrastructure;
 
@@ -299,6 +300,51 @@ public sealed class SqlServerIntegrationTests
             Assert.Equal("Removed", state[2]);
             Assert.Equal(1, state[3]);
             Assert.Equal(60m, state[4]);
+        }
+        finally
+        {
+            await database.DisposeAsync();
+        }
+    }
+
+    [Fact]
+    public async Task Global_statistics_report_revenue_occupancy_and_site_breakdown()
+    {
+        var database = await IntegrationDatabase.CreateAsync();
+
+        try
+        {
+            var startsAt = new DateTime(2099, 7, 10, 11, 0, 0);
+            var matchId = await database.CreateMatchAsync(startsAt, "Private", database.MemberId);
+            await database.CreateParticipantAsync(matchId, database.MemberId, true, "Pending");
+            await new PaymentService(new SqlPaymentRepository(database.Configuration))
+                .PayParticipantAsync(matchId, database.MemberMatricule, CancellationToken.None);
+
+            var connectionString = database.Configuration.GetConnectionString("PadelCourtManagement")!;
+            var service = new StatisticsService(
+                new SqlStatisticsRepository(database.Configuration),
+                new SqlAdministrationRepository(connectionString),
+                new SqlAdministrationRepository(connectionString),
+                new AdministrationAuthorizer());
+
+            var report = await service.GetAsync(
+                "G0001",
+                new StatisticsRequest(
+                    startsAt.Date,
+                    startsAt.Date.AddDays(1),
+                    database.SiteId),
+                CancellationToken.None);
+
+            Assert.Equal(15m, report.Revenue);
+            Assert.Equal(1, report.Matches);
+            Assert.Equal(1, report.ConfirmedParticipations);
+            Assert.Equal(4, report.Capacity);
+            Assert.Contains(report.Breakdown, breakdown =>
+                breakdown.SiteId == database.SiteId
+                && breakdown.CourtId == database.CourtId
+                && breakdown.Matches == 1
+                && breakdown.ConfirmedParticipations == 1
+                && breakdown.Revenue == 15m);
         }
         finally
         {
