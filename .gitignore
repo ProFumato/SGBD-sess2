@@ -4,6 +4,7 @@
 [Tt]est[Rr]esult*/
 
 # Visual Studio and Rider
+tmp/
 .vs/
 .idea/
 *.user
