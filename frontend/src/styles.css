@@ -166,7 +166,12 @@ input:focus-visible {
 
 button:disabled,
 input:disabled {
-  cursor: wait;
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+select:disabled {
+  cursor: not-allowed;
   opacity: 0.65;
 }
 

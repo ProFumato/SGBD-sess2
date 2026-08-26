@@ -28,7 +28,7 @@ export interface ApiRequestOptions extends Omit<RequestInit, "body" | "method"> 
   signal?: AbortSignal;
 }
 
-const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL ?? "http://localhost:5065").replace(/\/$/, "");
+const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/$/, "");
 
 export async function apiRequest<T>(
   path: string,

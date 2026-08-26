@@ -6,8 +6,11 @@ This is the separate React + TypeScript client for the ASP.NET Core API.
 
 1. Install Node.js 20 or newer.
 2. Run `npm install` from this directory.
-3. Copy `.env.example` to `.env.local` when the API is not available at `http://localhost:5065`.
+3. Copy `.env.example` to `.env.local`; the blank API URL uses the Vite proxy to the local HTTPS API.
 4. Run `npm run dev`.
+
+The development proxy targets `http://localhost:5065`.
+Set `VITE_API_BASE_URL` to an absolute API URL when using a deployed backend.
 
 Available checks:
 

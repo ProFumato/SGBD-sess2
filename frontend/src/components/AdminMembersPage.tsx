@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { ApiError } from "../api/client";
 import {
   createMember,
   getMembers,
+  getSites,
   removeAdministratorRole,
   setAdministratorRole,
   setMemberActivation,
@@ -10,6 +11,7 @@ import {
   type AdminMember,
   type AdministratorScope,
   type MembershipCategory,
+  type Site,
 } from "../api/administration";
 import { useIdentity } from "../state/identity";
 import { ErrorState, LoadingState } from "./Feedback";
@@ -27,12 +29,15 @@ export function AdminMembersPage() {
   const actor = identity!.member.matricule;
   const isGlobalAdmin = identity!.administratorRole?.scope === "Global";
   const [members, setMembers] = useState<AdminMember[]>([]);
+  const [sites, setSites] = useState<Site[]>([]);
+  const [siteQuery, setSiteQuery] = useState("");
   const [query, setQuery] = useState("");
   const [form, setForm] = useState(emptyMember);
   const [editing, setEditing] = useState<string | null>(null);
   const [roleMatricule, setRoleMatricule] = useState("");
   const [roleScope, setRoleScope] = useState<AdministratorScope>("Site");
   const [roleSiteId, setRoleSiteId] = useState("");
+  const [roleSiteQuery, setRoleSiteQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -40,10 +45,12 @@ export function AdminMembersPage() {
   async function refresh() {
     setLoading(true);
     try {
-      setMembers(await getMembers(actor));
+      const [loadedMembers, loadedSites] = await Promise.all([getMembers(actor), getSites(actor)]);
+      setMembers(loadedMembers);
+      setSites(loadedSites);
       setError(null);
     } catch (caughtError) {
-      setError(caughtError instanceof ApiError ? caughtError.message : "Members could not be loaded.");
+      setError(caughtError instanceof ApiError ? caughtError.message : "Members or sites could not be loaded.");
     } finally {
       setLoading(false);
     }
@@ -53,7 +60,7 @@ export function AdminMembersPage() {
     void refresh();
   }, [actor]);
 
-  async function saveMember(event: React.FormEvent<HTMLFormElement>) {
+  async function saveMember(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setBusy(true);
     setError(null);
@@ -84,7 +91,7 @@ export function AdminMembersPage() {
     }
   }
 
-  async function assignRole(event: React.FormEvent<HTMLFormElement>) {
+  async function assignRole(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!isGlobalAdmin || !roleMatricule.trim()) return;
     setBusy(true);
@@ -93,6 +100,7 @@ export function AdminMembersPage() {
       await setAdministratorRole(actor, roleMatricule.trim().toUpperCase(), roleScope, roleScope === "Site" ? Number(roleSiteId) : null);
       setRoleMatricule("");
       setRoleSiteId("");
+      setRoleSiteQuery("");
       await refresh();
     } catch (caughtError) {
       setError(caughtError instanceof ApiError ? caughtError.message : "The administrator role could not be changed.");
@@ -103,6 +111,14 @@ export function AdminMembersPage() {
 
   const visibleMembers = members.filter((member) =>
     `${member.matricule} ${member.displayName}`.toLowerCase().includes(query.toLowerCase()),
+  );
+  const visibleSites = useMemo(
+    () => sites.filter((site) => site.name.toLowerCase().includes(siteQuery.toLowerCase())),
+    [siteQuery, sites],
+  );
+  const visibleRoleSites = useMemo(
+    () => sites.filter((site) => site.name.toLowerCase().includes(roleSiteQuery.toLowerCase())),
+    [roleSiteQuery, sites],
   );
 
   if (loading) return <LoadingState label="Loading administrator members..." />;
@@ -140,22 +156,54 @@ export function AdminMembersPage() {
         <label htmlFor="member-name">Display name</label>
         <input id="member-name" value={form.displayName} disabled={busy} onChange={(event) => setForm({ ...form, displayName: event.target.value })} />
         <label htmlFor="member-category">Category</label>
-        <select id="member-category" value={form.membershipCategory} disabled={busy} onChange={(event) => setForm({ ...form, membershipCategory: event.target.value as MembershipCategory })}>
+        <select id="member-category" value={form.membershipCategory} disabled={busy} onChange={(event) => {
+          const membershipCategory = event.target.value as MembershipCategory;
+          setForm({ ...form, membershipCategory, homeSiteId: membershipCategory === "Site" ? form.homeSiteId : null });
+        }}>
           <option value="Global">Global</option><option value="Site">Site</option><option value="Free">Free</option>
         </select>
-        <label htmlFor="member-home-site">Home site ID</label>
-        <input id="member-home-site" type="number" min="1" value={form.homeSiteId ?? ""} disabled={busy} onChange={(event) => setForm({ ...form, homeSiteId: Number(event.target.value) || null })} />
+        {form.membershipCategory === "Site" && <>
+          <label htmlFor="member-site-search">Home site</label>
+          <input id="member-site-search" placeholder="Search sites by name" value={siteQuery} disabled={busy} onChange={(event) => setSiteQuery(event.target.value)} />
+          <select
+            id="member-home-site"
+            value={form.homeSiteId ?? ""}
+            disabled={busy || visibleSites.length === 0}
+            onChange={(event) => setForm({ ...form, homeSiteId: Number(event.target.value) || null })}
+          >
+            <option value="">Select a site</option>
+            {visibleSites.map((site) => <option key={site.siteId} value={site.siteId}>{site.name} (#{site.siteId})</option>)}
+          </select>
+          {sites.length === 0 && <span className="muted">No sites are available in your administration scope.</span>}
+        </>}
         <button className="button" type="submit" disabled={busy || !form.matricule || !form.displayName}>{editing ? "Save member" : "Create member"}</button>
       </form>
       {isGlobalAdmin && <form onSubmit={assignRole}>
         <h3>Administrator role</h3>
         <label htmlFor="role-matricule">Member matricule</label>
-        <input id="role-matricule" value={roleMatricule} onChange={(event) => setRoleMatricule(event.target.value)} />
+        <input id="role-matricule" value={roleMatricule} disabled={busy} onChange={(event) => setRoleMatricule(event.target.value.toUpperCase())} />
         <label htmlFor="role-scope">Scope</label>
-        <select id="role-scope" value={roleScope} onChange={(event) => setRoleScope(event.target.value as AdministratorScope)}>
+        <select id="role-scope" value={roleScope} disabled={busy} onChange={(event) => {
+          const scope = event.target.value as AdministratorScope;
+          setRoleScope(scope);
+          if (scope === "Global") setRoleSiteId("");
+        }}>
           <option value="Global">Global</option><option value="Site">Site</option>
         </select>
-        {roleScope === "Site" && <><label htmlFor="role-site">Site ID</label><input id="role-site" type="number" min="1" value={roleSiteId} onChange={(event) => setRoleSiteId(event.target.value)} /></>}
+        {roleScope === "Site" && <>
+          <label htmlFor="role-site-search">Administrator site</label>
+          <input id="role-site-search" placeholder="Search sites by name" value={roleSiteQuery} disabled={busy} onChange={(event) => setRoleSiteQuery(event.target.value)} />
+          <select
+            id="role-site"
+            value={roleSiteId}
+            disabled={busy || visibleRoleSites.length === 0}
+            onChange={(event) => setRoleSiteId(event.target.value)}
+          >
+            <option value="">Select a site</option>
+            {visibleRoleSites.map((site) => <option key={site.siteId} value={site.siteId}>{site.name} (#{site.siteId})</option>)}
+          </select>
+          {sites.length === 0 && <span className="muted">No sites are available in your administration scope.</span>}
+        </>}
         <button className="button" type="submit" disabled={busy || !roleMatricule || (roleScope === "Site" && !roleSiteId)}>Assign role</button>
       </form>}
       {isGlobalAdmin && <form onSubmit={(event) => {
