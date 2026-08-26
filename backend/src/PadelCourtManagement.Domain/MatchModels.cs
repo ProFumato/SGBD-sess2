@@ -19,6 +19,16 @@ public sealed record MatchDetails(
     ReservationVisibility Visibility,
     DateTime StartsAt);
 
+public sealed record PrivateMatchOverview(
+    int MatchId,
+    int CourtId,
+    string CourtName,
+    int SiteId,
+    string SiteName,
+    DateTime StartsAt,
+    DateTime EndsAt,
+    IReadOnlyList<MatchParticipantDetails> Participants);
+
 public sealed record MatchParticipantDetails(
     int MatchParticipantId,
     int MemberId,

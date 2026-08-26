@@ -337,6 +337,11 @@ matches.MapGet("/public", async (
     IMatchService service,
     CancellationToken cancellationToken) =>
     Results.Ok(await service.GetPublicMatchesAsync(matricule, cancellationToken)));
+matches.MapGet("/private", async (
+    string matricule,
+    IMatchService service,
+    CancellationToken cancellationToken) =>
+    Results.Ok(await service.GetPrivateMatchesAsync(matricule, cancellationToken)));
 matches.MapPost("/{matchId:int}/participants", async (
     int matchId,
     PrivateParticipantInput input,

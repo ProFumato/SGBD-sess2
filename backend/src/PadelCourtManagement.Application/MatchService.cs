@@ -38,13 +38,20 @@ public sealed class MatchService(IMatchRepository repository) : IMatchService
 
     public async Task<IReadOnlyList<MatchParticipantDetails>> GetPrivateParticipantsAsync(
         int matchId,
-        string organizerMatricule,
+        string matricule,
         CancellationToken cancellationToken)
     {
-        var organizer = await GetActiveMemberAsync(organizerMatricule, cancellationToken);
+        var member = await GetActiveMemberAsync(matricule, cancellationToken);
         var match = await GetPrivateMatchAsync(matchId, cancellationToken);
-        RequireOrganizer(match, organizer.MemberId);
-        return await repository.GetPrivateParticipantsAsync(matchId, organizer.MemberId, cancellationToken);
+        return await repository.GetPrivateParticipantsAsync(matchId, member.MemberId, cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<PrivateMatchOverview>> GetPrivateMatchesAsync(
+        string matricule,
+        CancellationToken cancellationToken)
+    {
+        var member = await GetActiveMemberAsync(matricule, cancellationToken);
+        return await repository.GetPrivateMatchesAsync(member.MemberId, DateTime.UtcNow, cancellationToken);
     }
 
     public async Task RemovePrivateParticipantAsync(

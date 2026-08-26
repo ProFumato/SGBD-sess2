@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { ApiError } from "../api/client";
 import {
   addPrivateParticipant,
@@ -8,6 +8,8 @@ import {
   replacePrivateParticipant,
   type MatchParticipant,
 } from "../api/matches";
+import { getPrivateMatches, type PrivateMatchOverview } from "../api/matches";
+import { formatBrusselsDateTime } from "../formatting/dateTime";
 import { useIdentity } from "../state/identity";
 import { payParticipant, type PaymentOutcome, type PaymentResult } from "../api/payment";
 import { EmptyState, ErrorState, LoadingState } from "./Feedback";
@@ -16,6 +18,7 @@ export function MatchParticipantsPage() {
   const { identity } = useIdentity();
   const [searchParams] = useSearchParams();
   const matchId = Number(searchParams.get("matchId"));
+  const [matches, setMatches] = useState<PrivateMatchOverview[]>([]);
   const [participants, setParticipants] = useState<MatchParticipant[]>([]);
   const [participantMatricule, setParticipantMatricule] = useState("");
   const [replacementById, setReplacementById] = useState<Record<number, string>>({});
@@ -24,12 +27,18 @@ export function MatchParticipantsPage() {
   const [error, setError] = useState<string | null>(null);
   const [paymentOutcome, setPaymentOutcome] = useState<PaymentOutcome>("Succeeded");
   const [paymentResult, setPaymentResult] = useState<PaymentResult | null>(null);
+  const [payingMatchId, setPayingMatchId] = useState<number | null>(null);
+  const [cardPaymentMessage, setCardPaymentMessage] = useState<Record<number, string>>({});
 
   const refresh = useCallback(async () => {
-    if (!identity || !Number.isInteger(matchId) || matchId <= 0) return;
+    if (!identity) return;
     setLoading(true);
     try {
-      setParticipants(await getPrivateParticipants(matchId, identity.member.matricule));
+      if (Number.isInteger(matchId) && matchId > 0) {
+        setParticipants(await getPrivateParticipants(matchId, identity.member.matricule));
+      } else {
+        setMatches(await getPrivateMatches(identity.member.matricule));
+      }
       setError(null);
     } catch (caughtError) {
       setError(caughtError instanceof ApiError ? caughtError.message : "Participants could not be loaded.");
@@ -81,10 +90,76 @@ export function MatchParticipantsPage() {
     }
   }
 
-  if (!Number.isInteger(matchId) || matchId <= 0) {
-    return <ErrorState>A valid match ID is required to manage participants.</ErrorState>;
+  async function handleCardPayment(matchIdToPay: number) {
+    if (!identity) return;
+    setPayingMatchId(matchIdToPay);
+    setError(null);
+    setCardPaymentMessage((current) => ({ ...current, [matchIdToPay]: "" }));
+    try {
+      const result = await payParticipant(matchIdToPay, identity.member.matricule, "Succeeded");
+      setCardPaymentMessage((current) => ({
+        ...current,
+        [matchIdToPay]: `Payment #${result.paymentId} confirmed: €${result.totalAmount.toFixed(2)}.`,
+      }));
+      await refresh();
+    } catch (caughtError) {
+      setCardPaymentMessage((current) => ({
+        ...current,
+        [matchIdToPay]: caughtError instanceof ApiError ? caughtError.message : "The payment request failed.",
+      }));
+    } finally {
+      setPayingMatchId(null);
+    }
   }
+
   if (loading) return <LoadingState label="Loading match participants..." />;
+  if (!Number.isInteger(matchId) || matchId <= 0) {
+    return (
+      <section className="content-card" aria-labelledby="member-matches-title">
+        <p className="eyebrow">Member matches</p>
+        <h2 id="member-matches-title">Private games you joined</h2>
+        <p className="muted">See every participant and whether their €15 place has been paid.</p>
+        {error && <ErrorState>{error}</ErrorState>}
+        {matches.length === 0 && <EmptyState>You have not been added to an upcoming private game.</EmptyState>}
+        <div className="public-match-list">
+          {matches.map((match) => {
+            const current = match.participants.find(
+              (participant) => participant.matricule === identity?.member.matricule,
+            );
+            const paymentPending = current?.participationStatus === "Pending" && !current.isPaid;
+            return (
+              <article className="public-match-card" key={match.matchId}>
+                <h3>Match #{match.matchId}</h3>
+                <p>{match.siteName} · {match.courtName}</p>
+                <p>{formatBrusselsDateTime(match.startsAt)} – {formatBrusselsDateTime(match.endsAt)}</p>
+                <p>
+                  Your place:{" "}
+                  <strong>{current?.isPaid ? "Paid" : "Payment pending"}</strong>
+                </p>
+                <p>{match.participants.filter((participant) => participant.isPaid).length} of {match.participants.length} paid</p>
+                {cardPaymentMessage[match.matchId] && (
+                  <p className="card-payment-message" role="status">{cardPaymentMessage[match.matchId]}</p>
+                )}
+                {paymentPending && (
+                  <button
+                    className="button"
+                    type="button"
+                    disabled={payingMatchId !== null}
+                    onClick={() => void handleCardPayment(match.matchId)}
+                  >
+                    {payingMatchId === match.matchId ? "Processing payment..." : "Pay my €15 place"}
+                  </button>
+                )}
+                <Link className="button button-secondary" to={`/member/matches?matchId=${match.matchId}`}>
+                  See participants
+                </Link>
+              </article>
+            );
+          })}
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="content-card" aria-labelledby="participants-title">

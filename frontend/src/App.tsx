@@ -89,6 +89,9 @@ function MemberGuard() {
       <Link className="button button-secondary" to="/member/public-matches">
         Find and join public games
       </Link>
+      <Link className="button button-secondary" to="/member/matches">
+        My private games
+      </Link>
     </section>
   );
 }

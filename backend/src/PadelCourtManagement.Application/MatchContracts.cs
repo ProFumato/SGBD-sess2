@@ -7,7 +7,10 @@ public interface IMatchService
     Task AddPrivateParticipantAsync(int matchId, PrivateParticipantInput input, CancellationToken cancellationToken);
     Task<IReadOnlyList<MatchParticipantDetails>> GetPrivateParticipantsAsync(
         int matchId,
-        string organizerMatricule,
+        string matricule,
+        CancellationToken cancellationToken);
+    Task<IReadOnlyList<PrivateMatchOverview>> GetPrivateMatchesAsync(
+        string matricule,
         CancellationToken cancellationToken);
     Task RemovePrivateParticipantAsync(
         int matchId,
@@ -30,7 +33,11 @@ public interface IMatchRepository
     Task AddPrivateParticipantAsync(int matchId, int organizerMemberId, int participantMemberId, CancellationToken cancellationToken);
     Task<IReadOnlyList<MatchParticipantDetails>> GetPrivateParticipantsAsync(
         int matchId,
-        int organizerMemberId,
+        int memberId,
+        CancellationToken cancellationToken);
+    Task<IReadOnlyList<PrivateMatchOverview>> GetPrivateMatchesAsync(
+        int memberId,
+        DateTime now,
         CancellationToken cancellationToken);
     Task RemovePrivateParticipantAsync(
         int matchId,

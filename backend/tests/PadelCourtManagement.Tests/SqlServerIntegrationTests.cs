@@ -76,6 +76,34 @@ public sealed class SqlServerIntegrationTests
     }
 
     [Fact]
+    public async Task Added_private_participant_can_see_the_upcoming_private_match()
+    {
+        var database = await IntegrationDatabase.CreateAsync();
+
+        try
+        {
+            var matchId = await database.CreateMatchAsync(
+                DateTime.Now.AddDays(2),
+                "Private",
+                database.MemberId);
+            await database.CreateParticipantAsync(matchId, database.MemberId, true, "Pending");
+            await database.CreateParticipantAsync(matchId, database.SecondMemberId, false, "Pending");
+
+            var matches = await new SqlMatchRepository(database.Configuration)
+                .GetPrivateMatchesAsync(database.SecondMemberId, DateTime.UtcNow, CancellationToken.None);
+
+            var match = Assert.Single(matches);
+            Assert.Equal(matchId, match.MatchId);
+            Assert.Contains(match.Participants, participant => participant.MemberId == database.SecondMemberId);
+            Assert.Contains(match.Participants, participant => participant.MemberId == database.MemberId);
+        }
+        finally
+        {
+            await database.DisposeAsync();
+        }
+    }
+
+    [Fact]
     public async Task Saving_schedule_returns_the_persisted_smallint_calendar_year()
     {
         var database = await IntegrationDatabase.CreateAsync();

@@ -36,6 +36,23 @@ export interface MatchParticipant {
   isPaid: boolean;
 }
 
+export interface PrivateMatchOverview {
+  matchId: number;
+  courtId: number;
+  courtName: string;
+  siteId: number;
+  siteName: string;
+  startsAt: string;
+  endsAt: string;
+  participants: MatchParticipant[];
+}
+
+export function getPrivateMatches(matricule: string): Promise<PrivateMatchOverview[]> {
+  return apiRequest<PrivateMatchOverview[]>(
+    `/api/matches/private?matricule=${encodeURIComponent(matricule)}`,
+  );
+}
+
 export function getPrivateParticipants(matchId: number, matricule: string): Promise<MatchParticipant[]> {
   return apiRequest<MatchParticipant[]>(
     `/api/matches/${matchId}/participants?matricule=${encodeURIComponent(matricule)}`,

@@ -78,7 +78,7 @@ public sealed class SqlMatchRepository(IConfiguration configuration) : IMatchRep
 
     public async Task<IReadOnlyList<MatchParticipantDetails>> GetPrivateParticipantsAsync(
         int matchId,
-        int organizerMemberId,
+        int memberId,
         CancellationToken cancellationToken)
     {
         const string sql = """
@@ -94,7 +94,14 @@ public sealed class SqlMatchRepository(IConfiguration configuration) : IMatchRep
             INNER JOIN pcm.Member AS member ON member.MemberId = p.MemberId
             INNER JOIN pcm.Match AS match ON match.MatchId = p.MatchId
             WHERE p.MatchId = @MatchId
-              AND match.OrganizerMemberId = @OrganizerMemberId
+              AND EXISTS
+              (
+                  SELECT 1
+                  FROM pcm.MatchParticipant AS viewer
+                  WHERE viewer.MatchId = match.MatchId
+                    AND viewer.MemberId = @MemberId
+                    AND viewer.ParticipationStatus <> 'Removed'
+              )
               AND match.Visibility = 'Private'
             ORDER BY p.IsOrganizer DESC, p.AddedAt;
             """;
@@ -102,22 +109,80 @@ public sealed class SqlMatchRepository(IConfiguration configuration) : IMatchRep
         await connection.OpenAsync(cancellationToken);
         await using var command = new SqlCommand(sql, connection);
         command.Parameters.Add("@MatchId", SqlDbType.Int).Value = matchId;
-        command.Parameters.Add("@OrganizerMemberId", SqlDbType.Int).Value = organizerMemberId;
+        command.Parameters.Add("@MemberId", SqlDbType.Int).Value = memberId;
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
         var participants = new List<MatchParticipantDetails>();
         while (await reader.ReadAsync(cancellationToken))
         {
-            participants.Add(new MatchParticipantDetails(
-                reader.GetInt32(0),
-                reader.GetInt32(1),
-                reader.GetString(2),
-                reader.GetString(3),
-                reader.GetBoolean(4),
-                reader.GetString(5),
-                reader.GetBoolean(6)));
+            participants.Add(ReadParticipant(reader, 0));
         }
 
         return participants;
+    }
+
+    public async Task<IReadOnlyList<PrivateMatchOverview>> GetPrivateMatchesAsync(
+        int memberId,
+        DateTime now,
+        CancellationToken cancellationToken)
+    {
+        const string sql = """
+            SELECT match.MatchId, court.CourtId, court.Name, site.SiteId, site.Name,
+                   match.StartsAt, match.EndsAt,
+                   p.MatchParticipantId, p.MemberId, member.Matricule, member.DisplayName,
+                   p.IsOrganizer, p.ParticipationStatus,
+                   CAST(CASE WHEN EXISTS
+                   (
+                       SELECT 1 FROM pcm.PaymentAllocation AS allocation
+                       WHERE allocation.MatchParticipantId = p.MatchParticipantId
+                   ) THEN 1 ELSE 0 END AS bit)
+            FROM pcm.Match AS match
+            INNER JOIN pcm.Court AS court ON court.CourtId = match.CourtId
+            INNER JOIN pcm.Site AS site ON site.SiteId = court.SiteId
+            INNER JOIN pcm.MatchParticipant AS viewer
+                ON viewer.MatchId = match.MatchId
+               AND viewer.MemberId = @MemberId
+               AND viewer.ParticipationStatus <> 'Removed'
+            INNER JOIN pcm.MatchParticipant AS p ON p.MatchId = match.MatchId
+            INNER JOIN pcm.Member AS member ON member.MemberId = p.MemberId
+            WHERE match.Visibility = 'Private'
+              AND match.StartsAt > @Now
+            ORDER BY match.StartsAt, match.MatchId, p.IsOrganizer DESC, p.AddedAt;
+            """;
+
+        await using var connection = new SqlConnection(connectionString);
+        await connection.OpenAsync(cancellationToken);
+        await using var command = new SqlCommand(sql, connection);
+        command.Parameters.Add("@MemberId", SqlDbType.Int).Value = memberId;
+        command.Parameters.Add("@Now", SqlDbType.DateTime2).Value = now;
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        var matches = new List<PrivateMatchOverview>();
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            var matchId = reader.GetInt32(0);
+            var participants = matches.LastOrDefault()?.MatchId == matchId
+                ? matches[^1].Participants.ToList()
+                : [];
+            participants.Add(ReadParticipant(reader, 7));
+            var overview = new PrivateMatchOverview(
+                matchId,
+                reader.GetInt32(1),
+                reader.GetString(2),
+                reader.GetInt32(3),
+                reader.GetString(4),
+                reader.GetDateTime(5),
+                reader.GetDateTime(6),
+                participants);
+            if (matches.LastOrDefault()?.MatchId == matchId)
+            {
+                matches[^1] = overview;
+            }
+            else
+            {
+                matches.Add(overview);
+            }
+        }
+
+        return matches;
     }
 
     public async Task RemovePrivateParticipantAsync(
@@ -324,6 +389,16 @@ public sealed class SqlMatchRepository(IConfiguration configuration) : IMatchRep
         "L" => MembershipCategory.Free,
         _ => throw new InvalidOperationException("The database contains an unknown member category.")
     };
+
+    private static MatchParticipantDetails ReadParticipant(SqlDataReader reader, int offset) =>
+        new(
+            reader.GetInt32(offset),
+            reader.GetInt32(offset + 1),
+            reader.GetString(offset + 2),
+            reader.GetString(offset + 3),
+            reader.GetBoolean(offset + 4),
+            reader.GetString(offset + 5),
+            reader.GetBoolean(offset + 6));
 
     private static ReservationVisibility Visibility(string value) => value switch
     {

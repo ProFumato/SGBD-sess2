@@ -96,6 +96,12 @@ public sealed class MatchServiceTests
             CancellationToken cancellationToken) =>
             Task.FromResult(Participants);
 
+        public Task<IReadOnlyList<PrivateMatchOverview>> GetPrivateMatchesAsync(
+            int memberId,
+            DateTime now,
+            CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<PrivateMatchOverview>>(Array.Empty<PrivateMatchOverview>());
+
         public Task RemovePrivateParticipantAsync(
             int matchId,
             int participantId,
