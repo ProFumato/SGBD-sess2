@@ -149,17 +149,21 @@ public sealed class SqlDayBeforeRepository(IConfiguration configuration) : IDayB
             await using var command = new SqlCommand(sql, connection, transaction);
             command.Parameters.Add("@MatchId", SqlDbType.Int).Value = matchId;
             command.Parameters.Add("@Now", SqlDbType.DateTime2).Value = now;
-            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
-            if (!await reader.ReadAsync(cancellationToken))
+            DayBeforeMatchResult result;
+            await using (var reader = await command.ExecuteReaderAsync(cancellationToken))
             {
-                throw new InvalidOperationException("Day-before processing did not return a result.");
+                if (!await reader.ReadAsync(cancellationToken))
+                {
+                    throw new InvalidOperationException("Day-before processing did not return a result.");
+                }
+
+                result = new DayBeforeMatchResult(
+                    reader.GetBoolean(0),
+                    reader.GetInt32(1),
+                    reader.GetBoolean(2),
+                    reader.GetBoolean(3));
             }
 
-            var result = new DayBeforeMatchResult(
-                reader.GetBoolean(0),
-                reader.GetInt32(1),
-                reader.GetBoolean(2),
-                reader.GetBoolean(3));
             await transaction.CommitAsync(cancellationToken);
             return result;
         }
