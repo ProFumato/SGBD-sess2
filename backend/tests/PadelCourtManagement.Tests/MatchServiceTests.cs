@@ -40,9 +40,39 @@ public sealed class MatchServiceTests
                 CancellationToken.None));
     }
 
+    [Fact]
+    public async Task OrganizerCanListPrivateParticipants()
+    {
+        var repository = new FakeMatchRepository
+        {
+            Match = new MatchDetails(5, 1, ReservationVisibility.Private, DateTime.UtcNow.AddDays(2)),
+            Participants = [new MatchParticipantDetails(8, 2, "G0002", "Player", false, "Pending")]
+        };
+        var service = new MatchService(repository);
+
+        var result = await service.GetPrivateParticipantsAsync(5, "G0001", CancellationToken.None);
+
+        Assert.Single(result);
+        Assert.Equal(8, result[0].MatchParticipantId);
+    }
+
+    [Fact]
+    public async Task NonOrganizerCannotRemovePrivateParticipant()
+    {
+        var repository = new FakeMatchRepository
+        {
+            Match = new MatchDetails(5, 1, ReservationVisibility.Private, DateTime.UtcNow.AddDays(2))
+        };
+        var service = new MatchService(repository);
+
+        await Assert.ThrowsAsync<ReservationForbiddenException>(() =>
+            service.RemovePrivateParticipantAsync(5, 8, "G0002", CancellationToken.None));
+    }
+
     private sealed class FakeMatchRepository : IMatchRepository
     {
         public MatchDetails? Match { get; init; }
+        public IReadOnlyList<MatchParticipantDetails> Participants { get; init; } = [];
         public (int MatchId, int OrganizerId, int ParticipantId)? AddedParticipant { get; private set; }
 
         public Task<ReservationMember?> GetMemberAsync(string matricule, CancellationToken cancellationToken) =>
@@ -59,6 +89,29 @@ public sealed class MatchServiceTests
             AddedParticipant = (matchId, organizerMemberId, participantMemberId);
             return Task.CompletedTask;
         }
+
+        public Task<IReadOnlyList<MatchParticipantDetails>> GetPrivateParticipantsAsync(
+            int matchId,
+            int organizerMemberId,
+            CancellationToken cancellationToken) =>
+            Task.FromResult(Participants);
+
+        public Task RemovePrivateParticipantAsync(
+            int matchId,
+            int participantId,
+            int organizerMemberId,
+            DateTime now,
+            CancellationToken cancellationToken) =>
+            Task.CompletedTask;
+
+        public Task ReplacePrivateParticipantAsync(
+            int matchId,
+            int participantId,
+            int organizerMemberId,
+            int replacementMemberId,
+            DateTime now,
+            CancellationToken cancellationToken) =>
+            Task.CompletedTask;
 
         public Task<IReadOnlyList<PublicMatch>> GetPublicMatchesAsync(DateTime now, CancellationToken cancellationToken) =>
             Task.FromResult<IReadOnlyList<PublicMatch>>(Array.Empty<PublicMatch>());

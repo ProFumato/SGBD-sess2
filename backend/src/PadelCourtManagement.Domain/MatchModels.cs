@@ -18,3 +18,11 @@ public sealed record MatchDetails(
     int OrganizerMemberId,
     ReservationVisibility Visibility,
     DateTime StartsAt);
+
+public sealed record MatchParticipantDetails(
+    int MatchParticipantId,
+    int MemberId,
+    string Matricule,
+    string DisplayName,
+    bool IsOrganizer,
+    string ParticipationStatus);
