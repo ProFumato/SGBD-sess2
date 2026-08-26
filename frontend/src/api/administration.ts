@@ -17,9 +17,35 @@ export interface Site { siteId: number; name: string; }
 export interface Court { courtId: number; siteId: number; name: string; isActive: boolean; }
 export interface Schedule { siteAnnualScheduleId: number; siteId: number; calendarYear: number; openingTime: string; closingTime: string; }
 export interface Closure { closureId: number; scope: ClosureScope; siteId: number | null; startsAt: string; endsAt: string; reason: string; }
+export interface StatisticsBreakdown {
+  siteId: number;
+  siteName: string;
+  courtId: number;
+  courtName: string;
+  matches: number;
+  confirmedParticipations: number;
+  revenue: number;
+}
+export interface StatisticsReport {
+  from: string;
+  to: string;
+  revenue: number;
+  matches: number;
+  confirmedParticipations: number;
+  capacity: number;
+  activeMembers: number;
+  outstandingDebt: number;
+  activeBookingBans: number;
+  breakdown: StatisticsBreakdown[];
+}
 
 export function getSites(actorMatricule: string): Promise<Site[]> {
   return apiRequest<Site[]>("/api/admin/sites", { actorMatricule });
+}
+export function getStatistics(actorMatricule: string, from: string, to: string, siteId?: number): Promise<StatisticsReport> {
+  const params = new URLSearchParams({ from, to });
+  if (siteId !== undefined) params.set("siteId", String(siteId));
+  return apiRequest<StatisticsReport>(`/api/admin/statistics?${params.toString()}`, { actorMatricule });
 }
 export function createSite(actorMatricule: string, name: string): Promise<Site> {
   return apiRequest<Site>("/api/admin/sites", { method: "POST", actorMatricule, body: { name } });
