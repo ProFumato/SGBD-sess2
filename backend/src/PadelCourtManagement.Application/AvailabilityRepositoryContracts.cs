@@ -13,6 +13,7 @@ public interface IAvailabilityRepository
         string matricule,
         int courtId,
         DateTime startAt,
+        DateTime now,
         CancellationToken cancellationToken);
     Task<ReservationResult> CreateReservationAsync(
         ReservationCommand command,

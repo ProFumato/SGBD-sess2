@@ -52,4 +52,5 @@ public sealed record ReservationCommand(
     int MemberId,
     int CourtId,
     DateTime StartAt,
-    ReservationVisibility Visibility);
+    ReservationVisibility Visibility,
+    DateTime Now);

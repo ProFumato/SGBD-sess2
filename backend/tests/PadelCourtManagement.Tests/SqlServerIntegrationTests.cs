@@ -51,6 +51,62 @@ public sealed class SqlServerIntegrationTests
     }
 
     [Fact]
+    public async Task Overlapping_reservation_is_rejected_by_sql_transaction()
+    {
+        var database = await IntegrationDatabase.CreateAsync();
+
+        try
+        {
+            var service = new AvailabilityService(new SqlAvailabilityRepository(database.Configuration));
+            var request = new ReservationRequest(
+                database.MemberMatricule,
+                database.CourtId,
+                DateOnly.FromDateTime(DateTime.Now).AddDays(4),
+                new TimeOnly(10, 0),
+                ReservationVisibility.Private);
+
+            await service.CreateReservationAsync(request, CancellationToken.None);
+
+            await Assert.ThrowsAsync<ReservationConflictException>(() =>
+                service.CreateReservationAsync(request, CancellationToken.None));
+        }
+        finally
+        {
+            await database.DisposeAsync();
+        }
+    }
+
+    [Fact]
+    public async Task Reservation_overlapping_closure_is_rejected()
+    {
+        var database = await IntegrationDatabase.CreateAsync();
+
+        try
+        {
+            var date = DateOnly.FromDateTime(DateTime.Now).AddDays(4);
+            var start = date.ToDateTime(new TimeOnly(10, 0));
+            await database.CreateClosureAsync(start, start.AddMinutes(90));
+
+            var repository = new SqlAvailabilityRepository(database.Configuration);
+            var service = new AvailabilityService(repository);
+
+            await Assert.ThrowsAsync<ReservationConflictException>(() =>
+                service.CreateReservationAsync(
+                    new ReservationRequest(
+                        database.MemberMatricule,
+                        database.CourtId,
+                        date,
+                        new TimeOnly(10, 0),
+                        ReservationVisibility.Private),
+                    CancellationToken.None));
+        }
+        finally
+        {
+            await database.DisposeAsync();
+        }
+    }
+
+    [Fact]
     public async Task Organizer_payment_confirms_place_and_settles_existing_debt()
     {
         var database = await IntegrationDatabase.CreateAsync();
@@ -181,6 +237,7 @@ public sealed class SqlServerIntegrationTests
         public int MemberId { get; private set; }
         public int SecondMemberId { get; private set; }
         public int CourtId => courtId;
+        public int SiteId => siteId;
         public string MemberMatricule { get; private set; } = string.Empty;
 
         public static async Task<IntegrationDatabase> CreateAsync()
@@ -257,6 +314,23 @@ public sealed class SqlServerIntegrationTests
             await command.ExecuteNonQueryAsync();
         }
 
+        public async Task CreateClosureAsync(DateTime startsAt, DateTime endsAt)
+        {
+            await using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+            await using var command = new SqlCommand(
+                """
+                INSERT INTO pcm.Closure (Scope, SiteId, StartsAt, EndsAt, Reason)
+                VALUES ('S', @SiteId, @StartsAt, @EndsAt, 'Integration closure');
+                SELECT CONVERT(INT, SCOPE_IDENTITY());
+                """,
+                connection);
+            command.Parameters.Add("@SiteId", SqlDbType.Int).Value = siteId;
+            command.Parameters.Add("@StartsAt", SqlDbType.DateTime2).Value = startsAt;
+            command.Parameters.Add("@EndsAt", SqlDbType.DateTime2).Value = endsAt;
+            await command.ExecuteNonQueryAsync();
+        }
+
         public async Task<object[]> QuerySingleAsync(string sql, Action<SqlCommand> parameters)
         {
             await using var connection = new SqlConnection(connectionString);
@@ -299,6 +373,7 @@ public sealed class SqlServerIntegrationTests
                 DELETE FROM pcm.PaymentAllocation
                 WHERE PaymentId IN (SELECT PaymentId FROM pcm.Payment WHERE PayerMemberId IN (@MemberId, @SecondMemberId));
                 DELETE FROM pcm.Payment WHERE PayerMemberId IN (@MemberId, @SecondMemberId);
+                DELETE FROM pcm.Closure WHERE SiteId = @SiteId;
                 DELETE FROM pcm.Debt WHERE OrganizerMemberId IN (@MemberId, @SecondMemberId);
                 DELETE FROM pcm.BookingBan WHERE MemberId IN (@MemberId, @SecondMemberId);
                 DELETE FROM pcm.MatchParticipant WHERE MatchId IN (SELECT MatchId FROM pcm.Match WHERE OrganizerMemberId IN (@MemberId, @SecondMemberId));

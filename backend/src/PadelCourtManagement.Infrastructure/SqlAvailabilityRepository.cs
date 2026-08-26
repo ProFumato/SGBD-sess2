@@ -111,6 +111,7 @@ public sealed class SqlAvailabilityRepository : IAvailabilityRepository
         string matricule,
         int courtId,
         DateTime startAt,
+        DateTime now,
         CancellationToken cancellationToken)
     {
         const string sql = """
@@ -149,7 +150,7 @@ public sealed class SqlAvailabilityRepository : IAvailabilityRepository
         await using var connection = CreateConnection();
         await connection.OpenAsync(cancellationToken);
         await using var command = CreateCommand(connection, sql);
-        AddContextParameters(command, matricule, courtId, startAt);
+        AddContextParameters(command, matricule, courtId, startAt, now);
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
         return await reader.ReadAsync(cancellationToken) ? ReadContext(reader) : null;
     }
@@ -231,7 +232,7 @@ public sealed class SqlAvailabilityRepository : IAvailabilityRepository
         Add(commandSql, "@MemberId", SqlDbType.Int, command.MemberId);
         Add(commandSql, "@CourtId", SqlDbType.Int, command.CourtId);
         Add(commandSql, "@StartsAt", SqlDbType.DateTime2, command.StartAt);
-        Add(commandSql, "@Now", SqlDbType.DateTime2, DateTime.UtcNow);
+        Add(commandSql, "@Now", SqlDbType.DateTime2, command.Now);
         if (!Convert.ToBoolean(await commandSql.ExecuteScalarAsync(cancellationToken)))
         {
             throw new ReservationConflictException("Reservation eligibility changed before the match could be created.");
@@ -311,12 +312,17 @@ public sealed class SqlAvailabilityRepository : IAvailabilityRepository
     private static void Add(SqlCommand command, string name, SqlDbType type, object? value) =>
         command.Parameters.Add(name, type).Value = value ?? DBNull.Value;
 
-    private static void AddContextParameters(SqlCommand command, string matricule, int courtId, DateTime startAt)
+    private static void AddContextParameters(
+        SqlCommand command,
+        string matricule,
+        int courtId,
+        DateTime startAt,
+        DateTime now)
     {
         Add(command, "@Matricule", SqlDbType.VarChar, matricule);
         Add(command, "@CourtId", SqlDbType.Int, courtId);
         Add(command, "@StartsAt", SqlDbType.DateTime2, startAt);
-        Add(command, "@Now", SqlDbType.DateTime2, DateTime.UtcNow);
+        Add(command, "@Now", SqlDbType.DateTime2, now);
     }
 
     private static ReservationMember ReadMember(SqlDataReader reader) =>

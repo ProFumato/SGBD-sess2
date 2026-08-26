@@ -51,12 +51,13 @@ public sealed class AvailabilityService : IAvailabilityService
             NormalizeMatricule(request.Matricule),
             request.CourtId,
             startAt,
+            now,
             cancellationToken)
             ?? throw new ReservationNotFoundException("The member or court does not exist.");
 
         ValidateReservation(context, startAt, now);
         return await repository.CreateReservationAsync(
-            new ReservationCommand(context.Member.MemberId, context.CourtId, startAt, request.Visibility),
+            new ReservationCommand(context.Member.MemberId, context.CourtId, startAt, request.Visibility, now),
             cancellationToken);
     }
 
