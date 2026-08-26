@@ -1,6 +1,19 @@
 @PadelCourtManagement.Api_HostAddress = http://localhost:5065
 
-GET {{PadelCourtManagement.Api_HostAddress}}/weatherforecast/
+GET {{PadelCourtManagement.Api_HostAddress}}/api/availability?matricule=G0001&siteId=1&date=2026-08-27
 Accept: application/json
+
+###
+
+POST {{PadelCourtManagement.Api_HostAddress}}/api/reservations
+Content-Type: application/json
+
+{
+  "matricule": "G0001",
+  "courtId": 1,
+  "date": "2026-08-27",
+  "startTime": "10:00:00",
+  "visibility": "Public"
+}
 
 ###

@@ -281,6 +281,26 @@ public sealed class SqlAdministrationRepository(
         }, cancellationToken);
     }
 
+    public async Task<bool> HasMatchesInYearAsync(int siteId, int calendarYear, CancellationToken cancellationToken)
+    {
+        const string sql = """
+            SELECT CASE WHEN EXISTS
+            (
+                SELECT 1
+                FROM pcm.Match AS m
+                INNER JOIN pcm.Court AS c ON c.CourtId = m.CourtId
+                WHERE c.SiteId = @SiteId
+                  AND DATEPART(YEAR, m.StartsAt) = @CalendarYear
+            ) THEN 1 ELSE 0 END;
+            """;
+
+        return await ExecuteBooleanAsync(sql, command =>
+        {
+            Add(command, "@SiteId", SqlDbType.Int, siteId);
+            Add(command, "@CalendarYear", SqlDbType.Int, calendarYear);
+        }, cancellationToken);
+    }
+
     public async Task<SiteAnnualSchedule> SetScheduleAsync(
         int siteId,
         int calendarYear,

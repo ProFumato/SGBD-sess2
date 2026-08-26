@@ -168,6 +168,13 @@ public sealed class AdministrationService(
     {
         var actor = await GetActorAsync(actorMatricule, cancellationToken);
         await RequireSiteAsync(actor, siteId, cancellationToken);
+        ValidateCalendarYear(calendarYear);
+        if (await schedules.HasMatchesInYearAsync(siteId, calendarYear, cancellationToken))
+        {
+            throw new AdministrationConflictException(
+                "The schedule cannot be removed while the site has matches in that calendar year.");
+        }
+
         await schedules.DeleteScheduleAsync(siteId, calendarYear, cancellationToken);
     }
 
@@ -278,11 +285,24 @@ public sealed class AdministrationService(
             throw new AdministrationValidationException("The display name is required.");
         }
 
-        return input with
+        var normalizedInput = input with
         {
             Matricule = NormalizeMatricule(input.Matricule),
             DisplayName = input.DisplayName.Trim()
         };
+
+        if (normalizedInput.DisplayName.Length > 120)
+        {
+            throw new AdministrationValidationException("The display name cannot exceed 120 characters.");
+        }
+
+        if (!HasValidMatriculeFormat(normalizedInput.Matricule, normalizedInput.MembershipCategory))
+        {
+            throw new AdministrationValidationException(
+                "The matricule must match the selected membership category.");
+        }
+
+        return normalizedInput;
     }
 
     private static SiteInput ValidateSiteInput(SiteInput input)
@@ -292,7 +312,13 @@ public sealed class AdministrationService(
             throw new AdministrationValidationException("The site name is required.");
         }
 
-        return input with { Name = input.Name.Trim() };
+        var name = input.Name.Trim();
+        if (name.Length > 100)
+        {
+            throw new AdministrationValidationException("The site name cannot exceed 100 characters.");
+        }
+
+        return input with { Name = name };
     }
 
     private static CourtInput ValidateCourtInput(CourtInput input)
@@ -302,15 +328,18 @@ public sealed class AdministrationService(
             throw new AdministrationValidationException("The court name is required.");
         }
 
-        return input with { Name = input.Name.Trim() };
+        var name = input.Name.Trim();
+        if (name.Length > 100)
+        {
+            throw new AdministrationValidationException("The court name cannot exceed 100 characters.");
+        }
+
+        return input with { Name = name };
     }
 
     private static void ValidateScheduleInput(int calendarYear, ScheduleInput input)
     {
-        if (calendarYear < 2000)
-        {
-            throw new AdministrationValidationException("The calendar year is not valid.");
-        }
+        ValidateCalendarYear(calendarYear);
 
         if (input.OpeningTime >= input.ClosingTime)
         {
@@ -340,7 +369,13 @@ public sealed class AdministrationService(
             throw new AdministrationValidationException("Global closures cannot target a site.");
         }
 
-        return input with { Reason = input.Reason.Trim() };
+        var reason = input.Reason.Trim();
+        if (reason.Length > 250)
+        {
+            throw new AdministrationValidationException("The closure reason cannot exceed 250 characters.");
+        }
+
+        return input with { Reason = reason };
     }
 
     private async Task EnsureActiveGlobalAdministratorRemainsAsync(CancellationToken cancellationToken)
@@ -403,4 +438,28 @@ public sealed class AdministrationService(
     private static ClosureInput ToInput(Closure closure) => new(closure.Scope, closure.SiteId, closure.StartsAt, closure.EndsAt, closure.Reason);
 
     private static string NormalizeMatricule(string matricule) => matricule.Trim().ToUpperInvariant();
+
+    private static void ValidateCalendarYear(int calendarYear)
+    {
+        if (calendarYear is < 2000 or > 9999)
+        {
+            throw new AdministrationValidationException("The calendar year is not valid.");
+        }
+    }
+
+    private static bool HasValidMatriculeFormat(string matricule, MembershipCategory category)
+    {
+        var expectedPrefix = category switch
+        {
+            MembershipCategory.Global => 'G',
+            MembershipCategory.Site => 'S',
+            MembershipCategory.Free => 'L',
+            _ => throw new ArgumentOutOfRangeException(nameof(category))
+        };
+        var expectedLength = category == MembershipCategory.Global ? 5 : 6;
+
+        return matricule.Length == expectedLength
+            && matricule[0] == expectedPrefix
+            && matricule[1..].All(character => character is >= '0' and <= '9');
+    }
 }

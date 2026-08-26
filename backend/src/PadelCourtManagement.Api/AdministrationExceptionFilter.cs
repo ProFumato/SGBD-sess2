@@ -28,5 +28,21 @@ public sealed class AdministrationExceptionFilter : IEndpointFilter
         {
             return Results.Problem(exception.Message, statusCode: StatusCodes.Status409Conflict);
         }
+        catch (ReservationValidationException exception)
+        {
+            return Results.Problem(exception.Message, statusCode: StatusCodes.Status400BadRequest);
+        }
+        catch (ReservationForbiddenException exception)
+        {
+            return Results.Problem(exception.Message, statusCode: StatusCodes.Status403Forbidden);
+        }
+        catch (ReservationNotFoundException exception)
+        {
+            return Results.Problem(exception.Message, statusCode: StatusCodes.Status404NotFound);
+        }
+        catch (ReservationConflictException exception)
+        {
+            return Results.Problem(exception.Message, statusCode: StatusCodes.Status409Conflict);
+        }
     }
 }

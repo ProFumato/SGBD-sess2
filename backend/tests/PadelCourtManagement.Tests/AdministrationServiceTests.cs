@@ -80,6 +80,21 @@ public sealed class AdministrationServiceTests
                 CancellationToken.None));
     }
 
+    [Fact]
+    public async Task RemovingScheduleWithExistingMatchesIsRejected()
+    {
+        var repository = new FakeAdministrationRepository
+        {
+            ActiveAdministrator = new AdministratorActor(1, "G0001", AdministratorScope.Global, null),
+            Site = new Site(1, "Brussels"),
+            HasMatchesInYear = true
+        };
+        var service = CreateService(repository);
+
+        await Assert.ThrowsAsync<AdministrationConflictException>(() =>
+            service.DeleteScheduleAsync("G0001", 1, 2030, CancellationToken.None));
+    }
+
     private static AdministrationService CreateService(FakeAdministrationRepository repository) =>
         new(
             repository,
@@ -97,6 +112,7 @@ public sealed class AdministrationServiceTests
         public Member? Member { get; init; }
         public Site? Site { get; init; }
         public bool HasMatchOutsideSchedule { get; init; }
+        public bool HasMatchesInYear { get; init; }
         public bool HasMatchOverlappingClosure { get; init; }
 
         public Task<AdministratorActor?> GetActiveAdministratorAsync(string matricule, CancellationToken cancellationToken) =>
@@ -152,6 +168,9 @@ public sealed class AdministrationServiceTests
 
         public Task<bool> HasMatchOutsideScheduleAsync(int siteId, int calendarYear, TimeOnly openingTime, TimeOnly closingTime, CancellationToken cancellationToken) =>
             Task.FromResult(HasMatchOutsideSchedule);
+
+        public Task<bool> HasMatchesInYearAsync(int siteId, int calendarYear, CancellationToken cancellationToken) =>
+            Task.FromResult(HasMatchesInYear);
 
         public Task<IReadOnlyList<SiteAnnualSchedule>> GetSchedulesAsync(int siteId, CancellationToken cancellationToken) =>
             Task.FromResult<IReadOnlyList<SiteAnnualSchedule>>(Array.Empty<SiteAnnualSchedule>());
