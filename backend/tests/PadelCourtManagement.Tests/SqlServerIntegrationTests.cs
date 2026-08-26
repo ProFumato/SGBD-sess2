@@ -52,6 +52,30 @@ public sealed class SqlServerIntegrationTests
     }
 
     [Fact]
+    public async Task Availability_generation_accepts_date_parameter_and_returns_slots()
+    {
+        var database = await IntegrationDatabase.CreateAsync();
+
+        try
+        {
+            var date = DateOnly.FromDateTime(DateTime.Now).AddDays(2);
+            var slots = await new SqlAvailabilityRepository(database.Configuration)
+                .GetAvailabilityAsync(database.SiteId, date, CancellationToken.None);
+
+            Assert.NotEmpty(slots);
+            Assert.All(slots, slot =>
+            {
+                Assert.Equal(database.CourtId, slot.CourtId);
+                Assert.Equal(90, (slot.EndAt - slot.StartAt).TotalMinutes);
+            });
+        }
+        finally
+        {
+            await database.DisposeAsync();
+        }
+    }
+
+    [Fact]
     public async Task Saving_schedule_returns_the_persisted_smallint_calendar_year()
     {
         var database = await IntegrationDatabase.CreateAsync();

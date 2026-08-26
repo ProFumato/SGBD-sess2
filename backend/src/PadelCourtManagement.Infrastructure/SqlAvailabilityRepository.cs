@@ -92,7 +92,7 @@ public sealed class SqlAvailabilityRepository : IAvailabilityRepository
         await using var command = CreateCommand(connection, sql);
         Add(command, "@SiteId", SqlDbType.Int, siteId);
         Add(command, "@CalendarYear", SqlDbType.Int, date.Year);
-        Add(command, "@Date", SqlDbType.Date, date.ToDateTime(TimeOnly.MinValue));
+        Add(command, "@Date", SqlDbType.DateTime2, date.ToDateTime(TimeOnly.MinValue));
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
         var slots = new List<AvailableSlot>();
         while (await reader.ReadAsync(cancellationToken))
