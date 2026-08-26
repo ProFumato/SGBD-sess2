@@ -11,6 +11,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IMatchService, MatchService>();
         services.AddScoped<IPaymentService, PaymentService>();
         services.AddScoped<IDayBeforeService, DayBeforeService>();
+        services.AddScoped<IStatisticsService, StatisticsService>();
         services.AddScoped<DayBeforeProcessingRunner>();
         services.AddOptions<DayBeforeProcessingOptions>()
             .BindConfiguration("DayBeforeProcessing")
