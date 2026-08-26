@@ -26,10 +26,9 @@ public sealed class SqlAvailabilityRepository : IAvailabilityRepository
             SELECT TOP (1) c.[Name]
             FROM [pcm].[Court] c
             INNER JOIN [pcm].[Site] s ON s.[SiteId] = c.[SiteId]
-            WHERE s.[Name] = @SiteName AND c.[IsActive] = 1
+            WHERE c.[IsActive] = 1
             ORDER BY c.[CourtId];
             """;
-        command.Parameters.Add(new SqlParameter("@SiteName", SqlDbType.NVarChar, 100) { Value = request.SiteCode });
 
         using var reader = command.ExecuteReader();
         if (!reader.Read())
