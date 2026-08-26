@@ -146,6 +146,93 @@ public sealed class SqlServerIntegrationTests
             Assert.Equal("Confirmed", state[0]);
             Assert.Equal(0m, state[1]);
             Assert.Equal(2, state[2]);
+
+            var participant = await new SqlMatchRepository(database.Configuration)
+                .GetPrivateParticipantsAsync(matchId, database.MemberId, CancellationToken.None);
+            Assert.Single(participant);
+            Assert.True(participant[0].IsPaid);
+        }
+        finally
+        {
+            await database.DisposeAsync();
+        }
+    }
+
+    [Fact]
+    public async Task Concurrent_private_participant_additions_stop_at_four_places()
+    {
+        var database = await IntegrationDatabase.CreateAsync();
+
+        try
+        {
+            var matchId = await database.CreateMatchAsync(
+                DateTime.Now.AddDays(2),
+                "Private",
+                database.MemberId);
+            await database.CreateParticipantAsync(matchId, database.MemberId, true, "Pending");
+            var members = new List<(int Id, string Matricule)>
+            {
+                (database.SecondMemberId, database.SecondMemberMatricule)
+            };
+            for (var index = 0; index < 3; index++)
+            {
+                members.Add(await database.CreateAdditionalMemberAsync());
+            }
+
+            var repository = new SqlMatchRepository(database.Configuration);
+            var attempts = members.Select(member =>
+                repository.AddPrivateParticipantAsync(
+                    matchId,
+                    database.MemberId,
+                    member.Id,
+                    CancellationToken.None));
+            var outcomes = await Task.WhenAll(attempts.Select(IntegrationDatabase.CaptureAsync));
+
+            Assert.Equal(3, outcomes.Count(success => success));
+            Assert.Equal(1, outcomes.Count(success => !success));
+
+            var participantCount = await database.QuerySingleAsync(
+                "SELECT COUNT(*) FROM pcm.MatchParticipant WHERE MatchId = @MatchId AND ParticipationStatus <> 'Removed';",
+                command => command.Parameters.Add("@MatchId", SqlDbType.Int).Value = matchId);
+            Assert.Equal(4, participantCount[0]);
+        }
+        finally
+        {
+            await database.DisposeAsync();
+        }
+    }
+
+    [Fact]
+    public async Task Duplicate_private_participant_is_rejected_and_existing_place_is_preserved()
+    {
+        var database = await IntegrationDatabase.CreateAsync();
+
+        try
+        {
+            var matchId = await database.CreateMatchAsync(
+                DateTime.Now.AddDays(2),
+                "Private",
+                database.MemberId);
+            await database.CreateParticipantAsync(matchId, database.MemberId, true, "Pending");
+            var repository = new SqlMatchRepository(database.Configuration);
+
+            await repository.AddPrivateParticipantAsync(
+                matchId,
+                database.MemberId,
+                database.SecondMemberId,
+                CancellationToken.None);
+
+            await Assert.ThrowsAsync<ReservationConflictException>(() =>
+                repository.AddPrivateParticipantAsync(
+                    matchId,
+                    database.MemberId,
+                    database.SecondMemberId,
+                    CancellationToken.None));
+
+            var participantCount = await database.QuerySingleAsync(
+                "SELECT COUNT(*) FROM pcm.MatchParticipant WHERE MatchId = @MatchId;",
+                command => command.Parameters.Add("@MatchId", SqlDbType.Int).Value = matchId);
+            Assert.Equal(2, participantCount[0]);
         }
         finally
         {
@@ -236,6 +323,7 @@ public sealed class SqlServerIntegrationTests
         public IConfiguration Configuration { get; }
         public int MemberId { get; private set; }
         public int SecondMemberId { get; private set; }
+        public string SecondMemberMatricule { get; private set; } = string.Empty;
         public int CourtId => courtId;
         public int SiteId => siteId;
         public string MemberMatricule { get; private set; } = string.Empty;
@@ -397,6 +485,7 @@ public sealed class SqlServerIntegrationTests
             var numericSuffix = Math.Abs(Guid.NewGuid().GetHashCode()) % 10000;
             MemberMatricule = $"G{numericSuffix:0000}";
             var secondMatricule = $"L{Math.Abs(Guid.NewGuid().GetHashCode()) % 100000:00000}";
+            SecondMemberMatricule = secondMatricule;
             await using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
             await using var command = new SqlCommand(
@@ -441,6 +530,37 @@ public sealed class SqlServerIntegrationTests
             SecondMemberId = Convert.ToInt32(await second.ExecuteScalarAsync());
             memberIds.Add(MemberId);
             memberIds.Add(SecondMemberId);
+        }
+
+        public async Task<(int Id, string Matricule)> CreateAdditionalMemberAsync()
+        {
+            var matricule = $"L{Math.Abs(Guid.NewGuid().GetHashCode()) % 100000:00000}";
+            await using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+            await using var command = new SqlCommand(
+                """
+                INSERT INTO pcm.Member (Matricule, DisplayName, MembershipCategory)
+                VALUES (@Matricule, 'Integration participant', 'L');
+                SELECT CONVERT(INT, SCOPE_IDENTITY());
+                """,
+                connection);
+            command.Parameters.Add("@Matricule", SqlDbType.VarChar, 6).Value = matricule;
+            var id = Convert.ToInt32(await command.ExecuteScalarAsync());
+            memberIds.Add(id);
+            return (id, matricule);
+        }
+
+        public static async Task<bool> CaptureAsync(Task task)
+        {
+            try
+            {
+                await task;
+                return true;
+            }
+            catch (ReservationConflictException)
+            {
+                return false;
+            }
         }
 
     }
