@@ -1,6 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 import { createReservation, getAvailability } from "./availability";
 import { apiRequest } from "./client";
+import {
+  addPrivateParticipant,
+  removePrivateParticipant,
+  replacePrivateParticipant,
+} from "./matches";
 
 describe("apiRequest", () => {
   it("adds JSON and actor headers and returns a JSON response", async () => {
@@ -96,6 +101,30 @@ describe("apiRequest", () => {
         startTime: "18:00:00",
         visibility: "Private",
       }),
+    });
+  });
+
+  it("uses organizer-scoped private participant contracts", async () => {
+      const fetchMock = vi.fn()
+        .mockResolvedValueOnce(new Response("[]", { status: 200 }))
+        .mockResolvedValueOnce(new Response(null, { status: 204 }))
+        .mockResolvedValueOnce(new Response(null, { status: 204 }))
+        .mockResolvedValueOnce(new Response(null, { status: 204 }));
+      vi.stubGlobal("fetch", fetchMock);
+
+      await getAvailability("G0001", 2, "2026-08-27");
+      await addPrivateParticipant(4, "G0001", "L00001");
+      await removePrivateParticipant(4, 8, "G0001");
+      await replacePrivateParticipant(4, 8, "G0001", "L00002");
+
+      expect(fetchMock.mock.calls[1][1]).toMatchObject({
+        method: "POST",
+        body: JSON.stringify({ organizerMatricule: "G0001", participantMatricule: "L00001" }),
+      });
+      expect(fetchMock.mock.calls[2][0]).toContain("participants/8?matricule=G0001");
+      expect(fetchMock.mock.calls[3][1]).toMatchObject({
+        method: "PUT",
+        body: JSON.stringify({ organizerMatricule: "G0001", participantMatricule: "L00002" }),
     });
   });
 });

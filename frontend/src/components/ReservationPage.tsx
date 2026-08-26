@@ -10,6 +10,7 @@ import {
 import { formatBrusselsDateTime, formatBrusselsTime } from "../formatting/dateTime";
 import { useIdentity } from "../state/identity";
 import { ErrorState, EmptyState, LoadingState } from "./Feedback";
+import { Link } from "react-router-dom";
 
 function todayInBrussels(): string {
   return new Intl.DateTimeFormat("en-CA", {
@@ -104,6 +105,9 @@ export function ReservationPage() {
           {reservation.visibility} match · court {reservation.courtId}
         </p>
         <p className="muted">The organizer payment state will be shown by the payment workflow.</p>
+        <Link className="button button-secondary" to={`/member/matches?matchId=${reservation.matchId}`}>
+          Manage participants
+        </Link>
       </section>
     );
   }
