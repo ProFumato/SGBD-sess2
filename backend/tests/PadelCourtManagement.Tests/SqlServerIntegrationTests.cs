@@ -52,6 +52,33 @@ public sealed class SqlServerIntegrationTests
     }
 
     [Fact]
+    public async Task Saving_schedule_returns_the_persisted_smallint_calendar_year()
+    {
+        var database = await IntegrationDatabase.CreateAsync();
+
+        try
+        {
+            var schedule = await new SqlAdministrationRepository(
+                    database.Configuration.GetConnectionString("PadelCourtManagement")
+                    ?? throw new InvalidOperationException("Missing integration connection string."))
+                .SetScheduleAsync(
+                    database.SiteId,
+                    2098,
+                    new ScheduleInput(new TimeOnly(7, 0), new TimeOnly(22, 0)),
+                    CancellationToken.None);
+
+            Assert.Equal(database.SiteId, schedule.SiteId);
+            Assert.Equal(2098, schedule.CalendarYear);
+            Assert.Equal(new TimeOnly(7, 0), schedule.OpeningTime);
+            Assert.Equal(new TimeOnly(22, 0), schedule.ClosingTime);
+        }
+        finally
+        {
+            await database.DisposeAsync();
+        }
+    }
+
+    [Fact]
     public async Task Overlapping_reservation_is_rejected_by_sql_transaction()
     {
         var database = await IntegrationDatabase.CreateAsync();

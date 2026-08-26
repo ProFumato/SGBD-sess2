@@ -661,7 +661,7 @@ public sealed class SqlAdministrationRepository(
         new(
             reader.GetInt32(0),
             reader.GetInt32(1),
-            reader.GetInt32(2),
+            Convert.ToInt32(reader.GetInt16(2)),
             TimeOnly.FromTimeSpan(reader.GetTimeSpan(3)),
             TimeOnly.FromTimeSpan(reader.GetTimeSpan(4)));
 
