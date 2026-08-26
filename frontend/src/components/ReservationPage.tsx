@@ -3,7 +3,9 @@ import { ApiError } from "../api/client";
 import {
   createReservation,
   getAvailability,
+  getReservationSites,
   type AvailableSlot,
+  type ReservationSite,
   type ReservationResult,
   type ReservationVisibility,
 } from "../api/availability";
@@ -21,6 +23,7 @@ function todayInBrussels(): string {
 export function ReservationPage() {
   const { identity } = useIdentity();
   const [siteId, setSiteId] = useState("");
+  const [sites, setSites] = useState<ReservationSite[]>([]);
   const [date, setDate] = useState(todayInBrussels);
   const [slots, setSlots] = useState<AvailableSlot[]>([]);
   const [selectedSlot, setSelectedSlot] = useState<AvailableSlot | null>(null);
@@ -29,6 +32,12 @@ export function ReservationPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [reservation, setReservation] = useState<ReservationResult | null>(null);
+
+  useEffect(() => {
+    getReservationSites()
+      .then(setSites)
+      .catch((caughtError: unknown) => setError(caughtError instanceof ApiError ? caughtError.message : "Sites could not be loaded."));
+  }, []);
 
   const parsedSiteId = Number(siteId);
   const siteRestriction =
@@ -120,8 +129,11 @@ export function ReservationPage() {
         Availability is read from the server. Matches last 90 minutes and require a 15-minute gap.
       </p>
       <form onSubmit={(event) => { event.preventDefault(); void handleSubmit(); }}>
-        <label htmlFor="site-id">Site ID</label>
-        <input id="site-id" type="number" min="1" value={siteId} onChange={(event) => setSiteId(event.target.value)} />
+        <label htmlFor="site-id">Site</label>
+        <select id="site-id" value={siteId} onChange={(event) => setSiteId(event.target.value)}>
+          <option value="">Select a site</option>
+          {sites.map((site) => <option key={site.siteId} value={site.siteId}>{site.name}</option>)}
+        </select>
         <label htmlFor="reservation-date">Date</label>
         <input id="reservation-date" type="date" value={date} onChange={(event) => setDate(event.target.value)} />
         {siteRestriction && <ErrorState>Site members can reserve only at their home site.</ErrorState>}
@@ -139,6 +151,7 @@ export function ReservationPage() {
       </form>
       {loading && <LoadingState label="Loading available courts..." />}
       {error && <ErrorState>{error}</ErrorState>}
+      {!error && sites.length === 0 && <EmptyState>No sites are available. Ask an administrator to configure sites and restart the API if it was just updated.</EmptyState>}
       {!loading && !error && Number.isInteger(parsedSiteId) && parsedSiteId > 0 && !siteRestriction && slots.length === 0 && (
         <EmptyState>No available slots were returned for this site and date.</EmptyState>
       )}

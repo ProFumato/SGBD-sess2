@@ -324,6 +324,12 @@ statistics.MapGet("/", async (
        cancellationToken)))
     .WithName("GetStatistics");
 
+app.MapGet("/api/sites", async (
+    ISiteRepository sites,
+    CancellationToken cancellationToken) =>
+    Results.Ok(await sites.GetSitesAsync(null, cancellationToken)))
+    .WithName("ListPublicSites");
+
 var matches = app.MapGroup("/api/matches")
     .AddEndpointFilter<AdministrationExceptionFilter>();
 matches.MapGet("/public", async (

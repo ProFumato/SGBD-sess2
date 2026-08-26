@@ -84,10 +84,10 @@ function MemberGuard() {
         {identity.member.matricule} · {identity.member.membershipCategory} member
       </p>
       <Link className="button" to="/member/reservations">
-        Find availability
+        Create a game
       </Link>
       <Link className="button button-secondary" to="/member/public-matches">
-        Find public matches
+        Find and join public games
       </Link>
     </section>
   );

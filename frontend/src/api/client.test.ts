@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { createReservation, getAvailability } from "./availability";
+import { createReservation, getAvailability, getReservationSites } from "./availability";
 import { getMembers, setMemberActivation } from "./administration";
 import { apiRequest } from "./client";
 import { payParticipant } from "./payment";
@@ -107,6 +107,15 @@ describe("apiRequest", () => {
         visibility: "Private",
       }),
     });
+  });
+
+  it("loads the member site list", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response("[]", { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await getReservationSites();
+
+    expect(fetchMock.mock.calls[0][0]).toContain("/api/sites");
   });
 
   it("uses organizer-scoped private participant contracts", async () => {

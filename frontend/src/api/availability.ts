@@ -1,5 +1,10 @@
 import { apiRequest } from "./client";
 
+export interface ReservationSite {
+  siteId: number;
+  name: string;
+}
+
 export interface AvailableSlot {
   courtId: number;
   courtName: string;
@@ -8,6 +13,10 @@ export interface AvailableSlot {
 }
 
 export type ReservationVisibility = "Private" | "Public";
+
+export function getReservationSites(): Promise<ReservationSite[]> {
+  return apiRequest<ReservationSite[]>("/api/sites");
+}
 
 export interface ReservationResult {
   matchId: number;
