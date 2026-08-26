@@ -133,16 +133,29 @@ public sealed class SqlMatchRepository(IConfiguration configuration) : IMatchRep
             }
 
             const string joinSql = """
+                DECLARE @DebtAmount DECIMAL(9, 2) =
+                (
+                    SELECT COALESCE(SUM(OutstandingAmount), 0)
+                    FROM pcm.Debt WITH (UPDLOCK, HOLDLOCK)
+                    WHERE OrganizerMemberId = @MemberId AND OutstandingAmount > 0
+                );
                 DECLARE @PaymentId INT;
                 DECLARE @ParticipantId INT;
                 INSERT INTO pcm.Payment (PayerMemberId, Amount, PaymentStatus, PaidAt)
-                VALUES (@MemberId, 15.00, 'Succeeded', @PaidAt);
+                VALUES (@MemberId, 15.00 + @DebtAmount, 'Succeeded', @PaidAt);
                 SET @PaymentId = CONVERT(INT, SCOPE_IDENTITY());
                 INSERT INTO pcm.MatchParticipant (MatchId, MemberId, IsOrganizer, ParticipationStatus)
                 VALUES (@MatchId, @MemberId, 0, 'Confirmed');
                 SET @ParticipantId = CONVERT(INT, SCOPE_IDENTITY());
                 INSERT INTO pcm.PaymentAllocation (PaymentId, MatchParticipantId, DebtId, Amount)
                 VALUES (@PaymentId, @ParticipantId, NULL, 15.00);
+                INSERT INTO pcm.PaymentAllocation (PaymentId, DebtId, Amount)
+                SELECT @PaymentId, DebtId, OutstandingAmount
+                FROM pcm.Debt
+                WHERE OrganizerMemberId = @MemberId AND OutstandingAmount > 0;
+                UPDATE pcm.Debt
+                SET OutstandingAmount = 0, SettledAt = @PaidAt
+                WHERE OrganizerMemberId = @MemberId AND OutstandingAmount > 0;
                 SELECT @ParticipantId, @PaymentId;
                 """;
             await using var join = new SqlCommand(joinSql, connection, transaction);
