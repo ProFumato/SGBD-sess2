@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using PadelCourtManagement.Api;
 using PadelCourtManagement.Application.Administration;
 using PadelCourtManagement.Infrastructure;
 
@@ -17,107 +18,138 @@ builder.Services.AddScoped<ICourtRepository>(sp => sp.GetRequiredService<SqlAdmi
 builder.Services.AddScoped<IScheduleRepository>(sp => sp.GetRequiredService<SqlAdministrationRepository>());
 builder.Services.AddScoped<IClosureRepository>(sp => sp.GetRequiredService<SqlAdministrationRepository>());
 builder.Services.AddScoped<IAdministrationService, AdministrationService>();
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
 app.UseHttpsRedirection();
+app.UseSwagger();
+app.UseSwaggerUI();
 
 app.MapGet("/health", () => Results.Ok(new { status = "Healthy" }))
     .WithName("HealthCheck");
 
 app.MapGet("/api/identity/members/{matricule}", async (
+var identity = app.MapGroup("/api/identity")
+    .AddEndpointFilter<AdministrationExceptionFilter>();
+identity.MapGet("/members/{matricule}", async (
     string matricule,
     IAdministrationService service,
     CancellationToken cancellationToken) =>
     Results.Ok(await service.IdentifyAsync(matricule, cancellationToken)))
     .WithName("IdentifyMember");
 
-var admin = app.MapGroup("/api/admin");
+var administration = app.MapGroup("/api/admin")
+    .AddEndpointFilter<AdministrationExceptionFilter>();
 
-admin.MapGet("/members", async (
+administration.MapGet("/members", async (
     HttpContext context,
     IAdministrationService service,
     CancellationToken cancellationToken) =>
     Results.Ok(await service.GetMembersAsync(context.GetActorMatricule(), cancellationToken)))
     .WithName("ListMembers");
 
-admin.MapPost("/members", async (
+administration.MapPost("/members", async (
     HttpContext context,
     MemberInput input,
     IAdministrationService service,
     CancellationToken cancellationToken) =>
-    Results.Created("/api/admin/members", await service.CreateMemberAsync(context.GetActorMatricule(), input, cancellationToken)))
+    Results.Created(
+        $"/api/identity/members/{input.Matricule}",
+        await service.CreateMemberAsync(context.GetActorMatricule(), input, cancellationToken)))
     .WithName("CreateMember");
 
-admin.MapPut("/members/{matricule}", async (
+administration.MapPut("/members/{matricule}", async (
     HttpContext context,
     string matricule,
     MemberInput input,
     IAdministrationService service,
     CancellationToken cancellationToken) =>
-    Results.Ok(await service.UpdateMemberAsync(context.GetActorMatricule(), matricule, input, cancellationToken)))
+    Results.Ok(await service.UpdateMemberAsync(
+        context.GetActorMatricule(),
+        matricule,
+        input,
+        cancellationToken)))
     .WithName("UpdateMember");
 
-admin.MapPut("/members/{matricule}/activation", async (
+administration.MapPut("/members/{matricule}/activation", async (
     HttpContext context,
     string matricule,
     ActivationInput input,
     IAdministrationService service,
     CancellationToken cancellationToken) =>
     {
-        await service.SetMemberActivationAsync(context.GetActorMatricule(), matricule, input.IsActive, cancellationToken);
+        await service.SetMemberActivationAsync(
+            context.GetActorMatricule(),
+            matricule,
+            input.IsActive,
+            cancellationToken);
         return Results.NoContent();
     })
     .WithName("SetMemberActivation");
 
-admin.MapPut("/members/{matricule}/administrator-role", async (
+administration.MapPut("/members/{matricule}/administrator-role", async (
     HttpContext context,
     string matricule,
     AdministratorRoleInput input,
     IAdministrationService service,
     CancellationToken cancellationToken) =>
     {
-        await service.SetAdministratorRoleAsync(context.GetActorMatricule(), matricule, input, cancellationToken);
+        await service.SetAdministratorRoleAsync(
+            context.GetActorMatricule(),
+            matricule,
+            input,
+            cancellationToken);
         return Results.NoContent();
     })
     .WithName("SetAdministratorRole");
 
-admin.MapDelete("/members/{matricule}/administrator-role", async (
+administration.MapDelete("/members/{matricule}/administrator-role", async (
     HttpContext context,
     string matricule,
     IAdministrationService service,
     CancellationToken cancellationToken) =>
     {
-        await service.RemoveAdministratorRoleAsync(context.GetActorMatricule(), matricule, cancellationToken);
+        await service.RemoveAdministratorRoleAsync(
+            context.GetActorMatricule(),
+            matricule,
+            cancellationToken);
         return Results.NoContent();
     })
     .WithName("RemoveAdministratorRole");
 
-admin.MapGet("/sites", async (
+administration.MapGet("/sites", async (
     HttpContext context,
     IAdministrationService service,
     CancellationToken cancellationToken) =>
     Results.Ok(await service.GetSitesAsync(context.GetActorMatricule(), cancellationToken)))
     .WithName("ListSites");
 
-admin.MapPost("/sites", async (
+administration.MapPost("/sites", async (
     HttpContext context,
     SiteInput input,
     IAdministrationService service,
     CancellationToken cancellationToken) =>
-    Results.Created("/api/admin/sites", await service.CreateSiteAsync(context.GetActorMatricule(), input, cancellationToken)))
+    Results.Created(
+        "/api/admin/sites",
+        await service.CreateSiteAsync(context.GetActorMatricule(), input, cancellationToken)))
     .WithName("CreateSite");
 
-admin.MapPut("/sites/{siteId:int}", async (
+administration.MapPut("/sites/{siteId:int}", async (
     HttpContext context,
     int siteId,
     SiteInput input,
     IAdministrationService service,
     CancellationToken cancellationToken) =>
-    Results.Ok(await service.UpdateSiteAsync(context.GetActorMatricule(), siteId, input, cancellationToken)))
+    Results.Ok(await service.UpdateSiteAsync(
+        context.GetActorMatricule(),
+        siteId,
+        input,
+        cancellationToken)))
     .WithName("UpdateSite");
 
-admin.MapGet("/sites/{siteId:int}/courts", async (
+administration.MapGet("/sites/{siteId:int}/courts", async (
     HttpContext context,
     int siteId,
     IAdministrationService service,
@@ -125,16 +157,18 @@ admin.MapGet("/sites/{siteId:int}/courts", async (
     Results.Ok(await service.GetCourtsAsync(context.GetActorMatricule(), siteId, cancellationToken)))
     .WithName("ListCourts");
 
-admin.MapPost("/sites/{siteId:int}/courts", async (
+administration.MapPost("/sites/{siteId:int}/courts", async (
     HttpContext context,
     int siteId,
     CourtInput input,
     IAdministrationService service,
     CancellationToken cancellationToken) =>
-    Results.Created($"/api/admin/sites/{siteId}/courts", await service.CreateCourtAsync(context.GetActorMatricule(), siteId, input, cancellationToken)))
+    Results.Created(
+        $"/api/admin/sites/{siteId}/courts",
+        await service.CreateCourtAsync(context.GetActorMatricule(), siteId, input, cancellationToken)))
     .WithName("CreateCourt");
 
-admin.MapPut("/courts/{courtId:int}", async (
+administration.MapPut("/courts/{courtId:int}", async (
     HttpContext context,
     int courtId,
     CourtInput input,
@@ -143,7 +177,7 @@ admin.MapPut("/courts/{courtId:int}", async (
     Results.Ok(await service.UpdateCourtAsync(context.GetActorMatricule(), courtId, input, cancellationToken)))
     .WithName("UpdateCourt");
 
-admin.MapGet("/sites/{siteId:int}/schedules", async (
+administration.MapGet("/sites/{siteId:int}/schedules", async (
     HttpContext context,
     int siteId,
     IAdministrationService service,
@@ -151,59 +185,81 @@ admin.MapGet("/sites/{siteId:int}/schedules", async (
     Results.Ok(await service.GetSchedulesAsync(context.GetActorMatricule(), siteId, cancellationToken)))
     .WithName("ListSchedules");
 
-admin.MapPut("/sites/{siteId:int}/schedules/{calendarYear:int}", async (
+administration.MapPut("/sites/{siteId:int}/schedules/{calendarYear:int}", async (
     HttpContext context,
     int siteId,
     int calendarYear,
     ScheduleInput input,
     IAdministrationService service,
     CancellationToken cancellationToken) =>
-    Results.Ok(await service.SetScheduleAsync(context.GetActorMatricule(), siteId, calendarYear, input, cancellationToken)))
+    Results.Ok(await service.SetScheduleAsync(
+        context.GetActorMatricule(),
+        siteId,
+        calendarYear,
+        input,
+        cancellationToken)))
     .WithName("SetSchedule");
 
-admin.MapDelete("/sites/{siteId:int}/schedules/{calendarYear:int}", async (
+administration.MapDelete("/sites/{siteId:int}/schedules/{calendarYear:int}", async (
     HttpContext context,
     int siteId,
     int calendarYear,
     IAdministrationService service,
     CancellationToken cancellationToken) =>
     {
-        await service.DeleteScheduleAsync(context.GetActorMatricule(), siteId, calendarYear, cancellationToken);
+        await service.DeleteScheduleAsync(
+            context.GetActorMatricule(),
+            siteId,
+            calendarYear,
+            cancellationToken);
         return Results.NoContent();
     })
     .WithName("DeleteSchedule");
 
-admin.MapGet("/closures", async (
+administration.MapGet("/closures", async (
     HttpContext context,
     IAdministrationService service,
     CancellationToken cancellationToken) =>
     Results.Ok(await service.GetClosuresAsync(context.GetActorMatricule(), cancellationToken)))
     .WithName("ListClosures");
 
-admin.MapPost("/closures", async (
+administration.MapPost("/closures", async (
     HttpContext context,
     ClosureInput input,
     IAdministrationService service,
     CancellationToken cancellationToken) =>
-    Results.Created("/api/admin/closures", await service.CreateClosureAsync(context.GetActorMatricule(), input, cancellationToken)))
+    {
+        var closure = await service.CreateClosureAsync(
+            context.GetActorMatricule(),
+            input,
+            cancellationToken);
+        return Results.Created($"/api/admin/closures/{closure.ClosureId}", closure);
+    })
     .WithName("CreateClosure");
 
-admin.MapPut("/closures/{closureId:int}", async (
+administration.MapPut("/closures/{closureId:int}", async (
     HttpContext context,
     int closureId,
     ClosureInput input,
     IAdministrationService service,
     CancellationToken cancellationToken) =>
-    Results.Ok(await service.UpdateClosureAsync(context.GetActorMatricule(), closureId, input, cancellationToken)))
+    Results.Ok(await service.UpdateClosureAsync(
+        context.GetActorMatricule(),
+        closureId,
+        input,
+        cancellationToken)))
     .WithName("UpdateClosure");
 
-admin.MapDelete("/closures/{closureId:int}", async (
+administration.MapDelete("/closures/{closureId:int}", async (
     HttpContext context,
     int closureId,
     IAdministrationService service,
     CancellationToken cancellationToken) =>
     {
-        await service.DeleteClosureAsync(context.GetActorMatricule(), closureId, cancellationToken);
+        await service.DeleteClosureAsync(
+            context.GetActorMatricule(),
+            closureId,
+            cancellationToken);
         return Results.NoContent();
     })
     .WithName("DeleteClosure");

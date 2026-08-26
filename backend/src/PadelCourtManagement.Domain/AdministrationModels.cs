@@ -18,7 +18,6 @@ public enum ClosureScope
     Global,
     Site
 }
-
 public sealed record Member(
     int MemberId,
     string Matricule,

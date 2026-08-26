@@ -4,7 +4,15 @@ namespace PadelCourtManagement.Api;
 
 public sealed class AdministrationExceptionFilter : IEndpointFilter
 {
-    public async ValueTask<object?> InvokeAsync(EndpointFilterInvocationContext context, EndpointFilterDelegate next)
+<<<<<<< HEAD
+    public async ValueTask<object?> InvokeAsync(
+        EndpointFilterInvocationContext context,
+        EndpointFilterDelegate next)
+=======
+    public async ValueTask<object?> InvokeAsync(
+        EndpointFilterInvocationContext context,
+        EndpointFilterDelegate next)
+>>>>>>> origin/main
     {
         try
         {
