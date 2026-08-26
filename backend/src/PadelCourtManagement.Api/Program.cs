@@ -33,6 +33,8 @@ builder.Services.AddScoped<IClosureRepository>(sp => sp.GetRequiredService<SqlAd
 builder.Services.AddScoped<IAdministrationService, AdministrationService>();
 
 builder.Services.AddApplicationServices();
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddHostedService<DayBeforeProcessingHostedService>();
 builder.Services.AddScoped<IAvailabilityRepository, SqlAvailabilityRepository>();
 builder.Services.AddScoped<IMatchRepository, SqlMatchRepository>();
 builder.Services.AddScoped<IPaymentRepository, SqlPaymentRepository>();
