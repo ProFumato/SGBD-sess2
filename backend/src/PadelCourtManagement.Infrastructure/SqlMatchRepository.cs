@@ -83,7 +83,13 @@ public sealed class SqlMatchRepository(IConfiguration configuration) : IMatchRep
     {
         const string sql = """
             SELECT p.MatchParticipantId, p.MemberId, member.Matricule, member.DisplayName,
-                   p.IsOrganizer, p.ParticipationStatus
+                   p.IsOrganizer, p.ParticipationStatus,
+                   CAST(CASE WHEN EXISTS
+                   (
+                       SELECT 1
+                       FROM pcm.PaymentAllocation AS allocation
+                       WHERE allocation.MatchParticipantId = p.MatchParticipantId
+                   ) THEN 1 ELSE 0 END AS bit)
             FROM pcm.MatchParticipant AS p
             INNER JOIN pcm.Member AS member ON member.MemberId = p.MemberId
             INNER JOIN pcm.Match AS match ON match.MatchId = p.MatchId
@@ -107,7 +113,8 @@ public sealed class SqlMatchRepository(IConfiguration configuration) : IMatchRep
                 reader.GetString(2),
                 reader.GetString(3),
                 reader.GetBoolean(4),
-                reader.GetString(5)));
+                reader.GetString(5),
+                reader.GetBoolean(6)));
         }
 
         return participants;

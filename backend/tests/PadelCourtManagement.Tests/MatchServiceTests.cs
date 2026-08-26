@@ -46,7 +46,7 @@ public sealed class MatchServiceTests
         var repository = new FakeMatchRepository
         {
             Match = new MatchDetails(5, 1, ReservationVisibility.Private, DateTime.UtcNow.AddDays(2)),
-            Participants = [new MatchParticipantDetails(8, 2, "G0002", "Player", false, "Pending")]
+            Participants = [new MatchParticipantDetails(8, 2, "G0002", "Player", false, "Pending", false)]
         };
         var service = new MatchService(repository);
 

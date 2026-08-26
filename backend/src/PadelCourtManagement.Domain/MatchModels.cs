@@ -25,4 +25,5 @@ public sealed record MatchParticipantDetails(
     string Matricule,
     string DisplayName,
     bool IsOrganizer,
-    string ParticipationStatus);
+    string ParticipationStatus,
+    bool IsPaid);
