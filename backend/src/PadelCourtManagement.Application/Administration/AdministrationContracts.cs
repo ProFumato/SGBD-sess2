@@ -62,6 +62,7 @@ public interface ICourtRepository
 
 public interface IScheduleRepository
 {
+    Task<bool> HasMatchesInYearAsync(int siteId, int calendarYear, CancellationToken cancellationToken);
     Task<bool> HasMatchOutsideScheduleAsync(int siteId, int calendarYear, TimeOnly openingTime, TimeOnly closingTime, CancellationToken cancellationToken);
     Task<IReadOnlyList<SiteAnnualSchedule>> GetSchedulesAsync(int siteId, CancellationToken cancellationToken);
     Task<SiteAnnualSchedule> SetScheduleAsync(int siteId, int calendarYear, ScheduleInput input, CancellationToken cancellationToken);

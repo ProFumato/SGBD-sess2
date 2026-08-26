@@ -6,34 +6,134 @@ namespace PadelCourtManagement.Tests;
 public sealed class AvailabilityServiceTests
 {
     [Fact]
-    public void GetAvailabilityReturnsASlotForFutureRequests()
+    public async Task ActiveGlobalMemberCanCreateEligibleReservation()
     {
-        var service = new AvailabilityService(new FakeAvailabilityRepository());
-        var request = new AvailabilityRequest("G0001", "S1", DateOnly.FromDateTime(DateTime.UtcNow.AddDays(1)), new TimeOnly(10, 0));
+        var repository = new FakeAvailabilityRepository
+        {
+            Context = CreateContext()
+        };
+        var service = new AvailabilityService(repository);
+        var date = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(7));
 
-        var result = service.GetAvailability(request);
+        var result = await service.CreateReservationAsync(
+            new ReservationRequest("g0001", 10, date, new TimeOnly(10, 0), ReservationVisibility.Public),
+            CancellationToken.None);
 
-        Assert.Single(result);
+        Assert.Equal(42, result.MatchId);
+        Assert.Equal(1, repository.CreateCalls);
+        Assert.Equal(10, repository.LastCommand!.CourtId);
     }
 
     [Fact]
-    public void CreateReservationReturnsReservationData()
+    public async Task SiteMemberCannotReserveOutsideHomeSite()
     {
-        var service = new AvailabilityService(new FakeAvailabilityRepository());
-        var start = new DateTimeOffset(2026, 8, 27, 10, 0, 0, TimeSpan.FromHours(2));
+        var repository = new FakeAvailabilityRepository
+        {
+            Context = CreateContext(member: new ReservationMember(1, MembershipCategory.Site, 2, true), siteId: 3)
+        };
+        var service = new AvailabilityService(repository);
 
-        var result = service.CreateReservation(new ReservationRequest("G0001", "S1-C1", start, ReservationVisibility.Public));
-
-        Assert.Equal("R0001", result.ReservationCode);
-        Assert.Equal("S1-C1", result.CourtCode);
+        await Assert.ThrowsAsync<ReservationForbiddenException>(() =>
+            service.CreateReservationAsync(
+                new ReservationRequest("S00001", 10, DateOnly.FromDateTime(DateTime.UtcNow.AddDays(7)), new TimeOnly(10, 0), ReservationVisibility.Private),
+                CancellationToken.None));
     }
+
+    [Fact]
+    public async Task BookingWindowIsAppliedToFreeMembers()
+    {
+        var repository = new FakeAvailabilityRepository
+        {
+            Context = CreateContext(member: new ReservationMember(1, MembershipCategory.Free, null, true))
+        };
+        var service = new AvailabilityService(repository);
+
+        await Assert.ThrowsAsync<ReservationForbiddenException>(() =>
+            service.CreateReservationAsync(
+                new ReservationRequest("L00001", 10, DateOnly.FromDateTime(DateTime.UtcNow.AddDays(6)), new TimeOnly(10, 0), ReservationVisibility.Private),
+                CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task ActiveDebtBlocksReservationCreation()
+    {
+        var repository = new FakeAvailabilityRepository
+        {
+            Context = CreateContext(hasActiveDebt: true)
+        };
+        var service = new AvailabilityService(repository);
+
+        await Assert.ThrowsAsync<ReservationForbiddenException>(() =>
+            service.CreateReservationAsync(
+                new ReservationRequest("G0001", 10, DateOnly.FromDateTime(DateTime.UtcNow.AddDays(7)), new TimeOnly(10, 0), ReservationVisibility.Private),
+                CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task InactiveMemberCannotQueryAvailability()
+    {
+        var repository = new FakeAvailabilityRepository
+        {
+            Member = new ReservationMember(1, MembershipCategory.Global, null, false)
+        };
+        var service = new AvailabilityService(repository);
+
+        await Assert.ThrowsAsync<ReservationForbiddenException>(() =>
+            service.GetAvailabilityAsync(
+                new AvailabilityRequest("G0001", 1, DateOnly.FromDateTime(DateTime.UtcNow.AddDays(1))),
+                CancellationToken.None));
+    }
+
+    private static ReservationContext CreateContext(
+        ReservationMember? member = null,
+        int siteId = 1,
+        bool hasActiveDebt = false) =>
+        new(
+            member ?? new ReservationMember(1, MembershipCategory.Global, null, true),
+            10,
+            siteId,
+            true,
+            new TimeOnly(8, 0),
+            new TimeOnly(22, 0),
+            false,
+            hasActiveDebt,
+            false);
 
     private sealed class FakeAvailabilityRepository : IAvailabilityRepository
     {
-        public IReadOnlyList<AvailableSlot> GetAvailability(AvailabilityRequest request)
-            => [new AvailableSlot("S1-C1", DateTimeOffset.UtcNow.AddDays(1), DateTimeOffset.UtcNow.AddDays(1).AddMinutes(90))];
+        public ReservationMember? Member { get; init; } = new(1, MembershipCategory.Global, null, true);
+        public ReservationContext? Context { get; init; }
+        public int CreateCalls { get; private set; }
+        public ReservationCommand? LastCommand { get; private set; }
 
-        public ReservationResult CreateReservation(ReservationRequest request)
-            => new("R0001", request.CourtCode, request.Start, request.Start.AddMinutes(90));
+        public Task<ReservationMember?> GetMemberAsync(string matricule, CancellationToken cancellationToken) =>
+            Task.FromResult(Member);
+
+        public Task<IReadOnlyList<AvailableSlot>> GetAvailabilityAsync(
+            int siteId,
+            DateOnly date,
+            CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<AvailableSlot>>(Array.Empty<AvailableSlot>());
+
+        public Task<ReservationContext?> GetReservationContextAsync(
+            string matricule,
+            int courtId,
+            DateTime startAt,
+            CancellationToken cancellationToken) =>
+            Task.FromResult(Context);
+
+        public Task<ReservationResult> CreateReservationAsync(
+            ReservationCommand command,
+            CancellationToken cancellationToken)
+        {
+            CreateCalls++;
+            LastCommand = command;
+            return Task.FromResult(new ReservationResult(
+                42,
+                command.CourtId,
+                command.StartAt,
+                command.StartAt.AddMinutes(90),
+                command.Visibility));
+        }
     }
 }

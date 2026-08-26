@@ -23,8 +23,6 @@ builder.Services.AddScoped<IAdministrationService, AdministrationService>();
 
 builder.Services.AddApplicationServices();
 builder.Services.AddSingleton<IAvailabilityRepository, SqlAvailabilityRepository>();
-builder.Services.AddSingleton<IAdminApiRepository, SqlAdminApiRepository>();
-builder.Services.AddSingleton<AdminApiService>();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
@@ -275,11 +273,22 @@ administration.MapDelete("/closures/{closureId:int}", async (
     .WithName("DeleteClosure");
 
 var availability = app.MapGroup("/api");
-availability.MapGet("/availability", ([AsParameters] AvailabilityRequest request, IAvailabilityService service)
-    => Results.Ok(service.GetAvailability(request)))
+availability.MapGet("/availability", async (
+    [AsParameters] AvailabilityRequest request,
+    IAvailabilityService service,
+    CancellationToken cancellationToken) =>
+    Results.Ok(await service.GetAvailabilityAsync(request, cancellationToken)))
+    .AddEndpointFilter<AdministrationExceptionFilter>()
     .WithName("GetAvailability");
-availability.MapPost("/reservations", (ReservationRequest request, IAvailabilityService service)
-    => Results.Ok(service.CreateReservation(request)))
+availability.MapPost("/reservations", async (
+    ReservationRequest request,
+    IAvailabilityService service,
+    CancellationToken cancellationToken) =>
+    {
+        var reservation = await service.CreateReservationAsync(request, cancellationToken);
+        return Results.Created($"/api/matches/{reservation.MatchId}", reservation);
+    })
+    .AddEndpointFilter<AdministrationExceptionFilter>()
     .WithName("CreateReservation");
 
 app.Run();

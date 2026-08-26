@@ -8,23 +8,48 @@ public enum ReservationVisibility
 
 public sealed record AvailabilityRequest(
     string Matricule,
-    string SiteCode,
-    DateOnly Date,
-    TimeOnly StartTime);
+    int SiteId,
+    DateOnly Date);
 
 public sealed record AvailableSlot(
-    string CourtCode,
-    DateTimeOffset Start,
-    DateTimeOffset End);
+    int CourtId,
+    string CourtName,
+    DateTime StartAt,
+    DateTime EndAt);
 
 public sealed record ReservationRequest(
     string Matricule,
-    string CourtCode,
-    DateTimeOffset Start,
+    int CourtId,
+    DateOnly Date,
+    TimeOnly StartTime,
     ReservationVisibility Visibility);
 
 public sealed record ReservationResult(
-    string ReservationCode,
-    string CourtCode,
-    DateTimeOffset Start,
-    DateTimeOffset End);
+    int MatchId,
+    int CourtId,
+    DateTime StartAt,
+    DateTime EndAt,
+    ReservationVisibility Visibility);
+
+public sealed record ReservationMember(
+    int MemberId,
+    MembershipCategory MembershipCategory,
+    int? HomeSiteId,
+    bool IsActive);
+
+public sealed record ReservationContext(
+    ReservationMember Member,
+    int CourtId,
+    int SiteId,
+    bool IsCourtActive,
+    TimeOnly? OpeningTime,
+    TimeOnly? ClosingTime,
+    bool HasOverlappingClosure,
+    bool HasActiveDebt,
+    bool HasActiveBookingBan);
+
+public sealed record ReservationCommand(
+    int MemberId,
+    int CourtId,
+    DateTime StartAt,
+    ReservationVisibility Visibility);
