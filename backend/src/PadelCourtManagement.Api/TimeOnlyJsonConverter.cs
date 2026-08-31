@@ -17,13 +17,7 @@ public sealed class TimeOnlyJsonConverter : JsonConverter<TimeOnly>
         "HH:mm:ss.ffff",
         "HH:mm:ss.fff",
         "HH:mm:ss.ff",
-        "HH:mm:ss.f",
-        "HH:mm:ssZ",
-        "HH:mm:ss+00:00",
-        "HH:mm:ss-00:00",
-        "HH:mmZ",
-        "HH:mm+00:00",
-        "HH:mm-00:00"
+        "HH:mm:ss.f"
     ];
 
     public override TimeOnly Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
@@ -33,28 +27,34 @@ public sealed class TimeOnlyJsonConverter : JsonConverter<TimeOnly>
             throw new JsonException("Expected a JSON string for TimeOnly.");
         }
 
-        var value = reader.GetString();
-        if (string.IsNullOrWhiteSpace(value))
+        var raw = reader.GetString();
+        if (string.IsNullOrWhiteSpace(raw))
         {
             throw new JsonException("The JSON value is not in a supported TimeOnly format.");
         }
 
-        var normalized = value.Trim();
-        var timezoneNormalised = normalized.EndsWith("Z", StringComparison.Ordinal)
-            ? normalized[..^1]
-            : normalized;
+        var value = raw.Trim();
 
-        if (TimeOnly.TryParse(timezoneNormalised, CultureInfo.InvariantCulture, DateTimeStyles.None, out var timeOnly))
+        if (TimeOnly.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.None, out var timeOnly))
         {
             return timeOnly;
         }
 
-        if (TimeOnly.TryParseExact(timezoneNormalised, AcceptedFormats, CultureInfo.InvariantCulture, DateTimeStyles.None, out timeOnly))
+        if (TimeOnly.TryParseExact(value, AcceptedFormats, CultureInfo.InvariantCulture, DateTimeStyles.None, out timeOnly))
         {
             return timeOnly;
         }
 
-        if (DateTimeOffset.TryParse(normalized, CultureInfo.InvariantCulture, DateTimeStyles.AllowWhiteSpaces, out var offsetValue))
+        if (value.EndsWith('Z', StringComparison.Ordinal))
+        {
+            var withoutUtcMarker = value[..^1];
+            if (TimeOnly.TryParse(withoutUtcMarker, CultureInfo.InvariantCulture, DateTimeStyles.None, out timeOnly))
+            {
+                return timeOnly;
+            }
+        }
+
+        if (DateTimeOffset.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.AllowWhiteSpaces, out var offsetValue))
         {
             return TimeOnly.FromDateTime(offsetValue.DateTime);
         }
