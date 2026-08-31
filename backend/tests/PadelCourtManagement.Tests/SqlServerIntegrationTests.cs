@@ -224,7 +224,7 @@ public sealed class SqlServerIntegrationTests
                 });
 
             Assert.Equal("Confirmed", state[0]);
-            Assert.Equal(15m, state[1]);
+            Assert.Equal(30m, state[1]);
             Assert.Equal(2, state[2]);
 
             var participant = await new SqlMatchRepository(database.Configuration)

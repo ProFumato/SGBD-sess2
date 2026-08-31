@@ -369,12 +369,10 @@ public sealed class SqlMatchRepository(IConfiguration configuration) : IMatchRep
             const string joinSql = """
                 DECLARE @PaymentId INT;
                 DECLARE @ParticipantId INT;
-                DECLARE @OrganizerMemberId INT = (
-                    SELECT OrganizerMemberId FROM pcm.Match WHERE MatchId = @MatchId
-                );
+                DECLARE @DebtOwnerMemberId INT = @MemberId;
                 DECLARE @DebtId INT;
                 DECLARE @DebtAmount DECIMAL(9, 2);
-                DECLARE @RemainingAmount DECIMAL(9, 2) = 15.00;
+                DECLARE @RemainingAmount DECIMAL(9, 2) = 0.00;
                 INSERT INTO pcm.Payment (PayerMemberId, Amount, PaymentStatus, PaidAt)
                 VALUES (@MemberId, 15.00, 'Succeeded', @PaidAt);
                 SET @PaymentId = CONVERT(INT, SCOPE_IDENTITY());
@@ -387,7 +385,7 @@ public sealed class SqlMatchRepository(IConfiguration configuration) : IMatchRep
                 BEGIN
                     SELECT TOP (1) @DebtId = DebtId, @DebtAmount = OutstandingAmount
                     FROM pcm.Debt WITH (UPDLOCK, HOLDLOCK)
-                    WHERE OrganizerMemberId = @OrganizerMemberId AND OutstandingAmount > 0
+                    WHERE OrganizerMemberId = @DebtOwnerMemberId AND OutstandingAmount > 0
                     ORDER BY DebtId;
                     IF @DebtId IS NULL BREAK;
                     DECLARE @AppliedAmount DECIMAL(9, 2) =

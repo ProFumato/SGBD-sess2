@@ -151,7 +151,7 @@ public sealed class SqlPaymentRepository(IConfiguration configuration) : IPaymen
                     await allocation.ExecuteNonQueryAsync(cancellationToken);
                 }
 
-                var remainingDebtPayment = participantAmount;
+                var remainingDebtPayment = totalAmount - participantAmount;
                 foreach (var debtEntry in debtsToSettle)
                 {
                     if (remainingDebtPayment <= 0) break;

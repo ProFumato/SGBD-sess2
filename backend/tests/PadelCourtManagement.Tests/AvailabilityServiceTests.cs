@@ -50,7 +50,7 @@ public sealed class AvailabilityServiceTests
 
         await Assert.ThrowsAsync<ReservationForbiddenException>(() =>
             service.CreateReservationAsync(
-                new ReservationRequest("L00001", 10, DateOnly.FromDateTime(DateTime.UtcNow.AddDays(6)), new TimeOnly(10, 0), ReservationVisibility.Private),
+                new ReservationRequest("L00001", 10, DateOnly.FromDateTime(DateTime.UtcNow.AddDays(7)), new TimeOnly(10, 0), ReservationVisibility.Private),
                 CancellationToken.None));
     }
 
