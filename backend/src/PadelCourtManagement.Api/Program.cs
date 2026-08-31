@@ -10,6 +10,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.ConfigureHttpJsonOptions(options =>
 {
     options.SerializerOptions.Converters.Add(new JsonStringEnumConverter());
+    options.SerializerOptions.Converters.Add(new TimeOnlyJsonConverter());
 });
 builder.Services.AddSingleton<AdministrationAuthorizer>();
 builder.Services.AddScoped<SqlAdministrationRepository>(sp =>
