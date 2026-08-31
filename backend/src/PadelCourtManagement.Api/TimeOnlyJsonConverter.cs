@@ -45,7 +45,7 @@ public sealed class TimeOnlyJsonConverter : JsonConverter<TimeOnly>
             return timeOnly;
         }
 
-        if (value.EndsWith('Z', StringComparison.Ordinal))
+        if (value.EndsWith("Z", StringComparison.Ordinal))
         {
             var withoutUtcMarker = value[..^1];
             if (TimeOnly.TryParse(withoutUtcMarker, CultureInfo.InvariantCulture, DateTimeStyles.None, out timeOnly))
