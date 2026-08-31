@@ -326,7 +326,7 @@ public sealed class SqlAdministrationRepository(
         await using var connection = CreateConnection();
         await connection.OpenAsync(cancellationToken);
         await using var command = CreateCommand(connection, sql);
-        AddScheduleParameters(command, siteId, calendarYear, input);
+        AddScheduleParameters(command, siteId, calendarYear, input.GetOpeningTime(), input.GetClosingTime());
         try
         {
             await using var reader = await command.ExecuteReaderAsync(cancellationToken);
@@ -618,12 +618,13 @@ public sealed class SqlAdministrationRepository(
         SqlCommand command,
         int siteId,
         int calendarYear,
-        ScheduleInput input)
+        TimeOnly openingTime,
+        TimeOnly closingTime)
     {
         Add(command, "@SiteId", SqlDbType.Int, siteId);
         Add(command, "@CalendarYear", SqlDbType.SmallInt, calendarYear);
-        Add(command, "@OpeningTime", SqlDbType.Time, input.OpeningTime.ToTimeSpan());
-        Add(command, "@ClosingTime", SqlDbType.Time, input.ClosingTime.ToTimeSpan());
+        Add(command, "@OpeningTime", SqlDbType.Time, openingTime.ToTimeSpan());
+        Add(command, "@ClosingTime", SqlDbType.Time, closingTime.ToTimeSpan());
     }
 
     private static void AddClosureParameters(SqlCommand command, ClosureInput input)

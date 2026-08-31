@@ -1,30 +1,102 @@
+using System.Globalization;
+using System.Text.Json.Serialization;
 using PadelCourtManagement.Domain;
 
 namespace PadelCourtManagement.Application.Administration;
 
 public sealed record MemberInput(
-    string Matricule,
-    string DisplayName,
-    MembershipCategory MembershipCategory,
-    int? HomeSiteId,
-    bool IsActive);
+    [property: JsonPropertyName("matricule")] string Matricule,
+    [property: JsonPropertyName("displayName")] string DisplayName,
+    [property: JsonPropertyName("membershipCategory")] MembershipCategory MembershipCategory,
+    [property: JsonPropertyName("homeSiteId")] int? HomeSiteId,
+    [property: JsonPropertyName("isActive")] bool IsActive);
 
 public sealed record AdministratorRoleInput(
-    AdministratorScope Scope,
-    int? SiteId);
+    [property: JsonPropertyName("scope")] AdministratorScope Scope,
+    [property: JsonPropertyName("siteId")] int? SiteId);
 
-public sealed record SiteInput(string Name);
+public sealed record SiteInput(
+    [property: JsonPropertyName("name")] string Name);
 
-public sealed record CourtInput(string Name, bool IsActive);
+public sealed record CourtInput(
+    [property: JsonPropertyName("name")] string Name,
+    [property: JsonPropertyName("isActive")] bool IsActive);
 
-public sealed record ScheduleInput(TimeOnly OpeningTime, TimeOnly ClosingTime);
+public sealed class ScheduleInput
+{
+    [JsonPropertyName("openingTime")]
+    public string OpeningTime { get; init; } = string.Empty;
+
+    [JsonPropertyName("closingTime")]
+    public string ClosingTime { get; init; } = string.Empty;
+
+    [JsonConstructor]
+    public ScheduleInput(string openingTime, string closingTime)
+    {
+        OpeningTime = openingTime ?? string.Empty;
+        ClosingTime = closingTime ?? string.Empty;
+    }
+
+    public ScheduleInput(TimeOnly openingTime, TimeOnly closingTime)
+        : this(openingTime.ToString("HH:mm:ss", CultureInfo.InvariantCulture), closingTime.ToString("HH:mm:ss", CultureInfo.InvariantCulture))
+    {
+    }
+
+    public TimeOnly GetOpeningTime() => ParseTime(OpeningTime, nameof(OpeningTime));
+
+    public TimeOnly GetClosingTime() => ParseTime(ClosingTime, nameof(ClosingTime));
+
+    private static TimeOnly ParseTime(string value, string parameterName)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            throw new ArgumentException($"The {parameterName} value is not a valid time.", parameterName);
+        }
+
+        var normalized = value.Trim();
+        if (normalized.EndsWith("Z", StringComparison.Ordinal))
+        {
+            normalized = normalized[..^1];
+        }
+
+        var parts = normalized.Split(':');
+        if (parts.Length >= 4)
+        {
+            normalized = $"{parts[0]}:{parts[1]}:{parts[2]}";
+        }
+
+        if (TimeOnly.TryParse(normalized, CultureInfo.InvariantCulture, out var parsed))
+        {
+            return parsed;
+        }
+
+        if (TimeOnly.TryParseExact(normalized, new[]
+            {
+                "HH:mm",
+                "HH:mm:ss",
+                "HH:mm:ss.FFFFFFF",
+                "HH:mm:ss.fffffff",
+                "HH:mm:ss.ffffff",
+                "HH:mm:ss.fffff",
+                "HH:mm:ss.ffff",
+                "HH:mm:ss.fff",
+                "HH:mm:ss.ff",
+                "HH:mm:ss.f"
+            }, CultureInfo.InvariantCulture, DateTimeStyles.None, out parsed))
+        {
+            return parsed;
+        }
+
+        throw new ArgumentException($"The {parameterName} value is not a valid time.", parameterName);
+    }
+}
 
 public sealed record ClosureInput(
-    ClosureScope Scope,
-    int? SiteId,
-    DateTime StartsAt,
-    DateTime EndsAt,
-    string Reason);
+    [property: JsonPropertyName("scope")] ClosureScope Scope,
+    [property: JsonPropertyName("siteId")] int? SiteId,
+    [property: JsonPropertyName("startsAt")] DateTime StartsAt,
+    [property: JsonPropertyName("endsAt")] DateTime EndsAt,
+    [property: JsonPropertyName("reason")] string Reason);
 
 public sealed record IdentityResult(Member Member, AdministratorActor? AdministratorRole);
 

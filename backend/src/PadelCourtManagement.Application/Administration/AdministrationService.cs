@@ -156,7 +156,10 @@ public sealed class AdministrationService(
         await RequireSiteAsync(actor, siteId, cancellationToken);
         ValidateScheduleInput(calendarYear, input);
 
-        if (await schedules.HasMatchOutsideScheduleAsync(siteId, calendarYear, input.OpeningTime, input.ClosingTime, cancellationToken))
+        var openingTime = input.GetOpeningTime();
+        var closingTime = input.GetClosingTime();
+
+        if (await schedules.HasMatchOutsideScheduleAsync(siteId, calendarYear, openingTime, closingTime, cancellationToken))
         {
             throw new AdministrationConflictException("The schedule would make an existing match fall outside the site's opening hours.");
         }
@@ -341,7 +344,9 @@ public sealed class AdministrationService(
     {
         ValidateCalendarYear(calendarYear);
 
-        if (input.OpeningTime >= input.ClosingTime)
+        var openingTime = input.GetOpeningTime();
+        var closingTime = input.GetClosingTime();
+        if (openingTime >= closingTime)
         {
             throw new AdministrationValidationException("The opening time must be before the closing time.");
         }

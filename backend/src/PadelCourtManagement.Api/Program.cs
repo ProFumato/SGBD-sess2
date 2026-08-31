@@ -455,4 +455,4 @@ app.Run();
 
 public partial class Program;
 
-public sealed record ActivationInput(bool IsActive);
+public sealed record ActivationInput([property: JsonPropertyName("isActive")] bool IsActive);
