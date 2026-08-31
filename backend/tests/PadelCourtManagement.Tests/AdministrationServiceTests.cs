@@ -64,6 +64,89 @@ public sealed class AdministrationServiceTests
     }
 
     [Fact]
+    public async Task GlobalAdministratorCanSetScheduleWhenNoConflictExists()
+    {
+        var repository = new FakeAdministrationRepository
+        {
+            ActiveAdministrator = new AdministratorActor(1, "G0001", AdministratorScope.Global, null),
+            Site = new Site(1, "Brussels"),
+            Schedule = new SiteAnnualSchedule(1, 1, 2030, new TimeOnly(9, 0), new TimeOnly(22, 0))
+        };
+        var service = CreateService(repository);
+
+        var result = await service.SetScheduleAsync(
+            "G0001",
+            1,
+            2030,
+            new ScheduleInput(new TimeOnly(9, 0), new TimeOnly(22, 0)),
+            CancellationToken.None);
+
+        Assert.Equal(1, result.SiteId);
+        Assert.Equal(2030, result.CalendarYear);
+    }
+
+    [Fact]
+    public async Task SiteAdministratorCanSetScheduleForAssignedSite()
+    {
+        var repository = new FakeAdministrationRepository
+        {
+            ActiveAdministrator = new AdministratorActor(2, "S00001", AdministratorScope.Site, 1),
+            Site = new Site(1, "Brussels"),
+            Schedule = new SiteAnnualSchedule(2, 1, 2030, new TimeOnly(8, 0), new TimeOnly(20, 0))
+        };
+        var service = CreateService(repository);
+
+        var result = await service.SetScheduleAsync(
+            "S00001",
+            1,
+            2030,
+            new ScheduleInput(new TimeOnly(8, 0), new TimeOnly(20, 0)),
+            CancellationToken.None);
+
+        Assert.Equal(1, result.SiteId);
+        Assert.Equal(2030, result.CalendarYear);
+    }
+
+    [Fact]
+    public async Task SiteAdministratorCanCreateClosureForAssignedSite()
+    {
+        var repository = new FakeAdministrationRepository
+        {
+            ActiveAdministrator = new AdministratorActor(2, "S00001", AdministratorScope.Site, 1),
+            Site = new Site(1, "Brussels"),
+            Closure = new Closure(1, ClosureScope.Site, 1, DateTime.UtcNow.AddDays(1), DateTime.UtcNow.AddDays(1).AddHours(1), "Maintenance")
+        };
+        var service = CreateService(repository);
+
+        var result = await service.CreateClosureAsync(
+            "S00001",
+            new ClosureInput(ClosureScope.Site, 1, DateTime.UtcNow.AddDays(1), DateTime.UtcNow.AddDays(1).AddHours(1), "Maintenance"),
+            CancellationToken.None);
+
+        Assert.Equal(ClosureScope.Site, result.Scope);
+        Assert.Equal(1, result.SiteId);
+    }
+
+    [Fact]
+    public async Task GlobalAdministratorCanCreateGlobalClosure()
+    {
+        var repository = new FakeAdministrationRepository
+        {
+            ActiveAdministrator = new AdministratorActor(1, "G0001", AdministratorScope.Global, null),
+            Closure = new Closure(2, ClosureScope.Global, null, DateTime.UtcNow.AddDays(2), DateTime.UtcNow.AddDays(2).AddHours(2), "Festival")
+        };
+        var service = CreateService(repository);
+
+        var result = await service.CreateClosureAsync(
+            "G0001",
+            new ClosureInput(ClosureScope.Global, null, DateTime.UtcNow.AddDays(2), DateTime.UtcNow.AddDays(2).AddHours(2), "Festival"),
+            CancellationToken.None);
+
+        Assert.Equal(ClosureScope.Global, result.Scope);
+        Assert.Null(result.SiteId);
+    }
+
+    [Fact]
     public async Task GlobalClosureConflictIsRejected()
     {
         var repository = new FakeAdministrationRepository
@@ -114,6 +197,8 @@ public sealed class AdministrationServiceTests
         public bool HasMatchOutsideSchedule { get; init; }
         public bool HasMatchesInYear { get; init; }
         public bool HasMatchOverlappingClosure { get; init; }
+        public SiteAnnualSchedule? Schedule { get; init; }
+        public Closure? Closure { get; init; }
 
         public Task<AdministratorActor?> GetActiveAdministratorAsync(string matricule, CancellationToken cancellationToken) =>
             Task.FromResult(ActiveAdministrator);
@@ -173,10 +258,10 @@ public sealed class AdministrationServiceTests
             Task.FromResult(HasMatchesInYear);
 
         public Task<IReadOnlyList<SiteAnnualSchedule>> GetSchedulesAsync(int siteId, CancellationToken cancellationToken) =>
-            Task.FromResult<IReadOnlyList<SiteAnnualSchedule>>(Array.Empty<SiteAnnualSchedule>());
+            Task.FromResult<IReadOnlyList<SiteAnnualSchedule>>(Schedule is null ? Array.Empty<SiteAnnualSchedule>() : new[] { Schedule });
 
         public Task<SiteAnnualSchedule> SetScheduleAsync(int siteId, int calendarYear, ScheduleInput input, CancellationToken cancellationToken) =>
-            throw new NotImplementedException();
+            Task.FromResult(Schedule ?? new SiteAnnualSchedule(1, siteId, calendarYear, input.OpeningTime, input.ClosingTime));
 
         public Task DeleteScheduleAsync(int siteId, int calendarYear, CancellationToken cancellationToken) =>
             Task.CompletedTask;
@@ -191,10 +276,10 @@ public sealed class AdministrationServiceTests
             Task.FromResult(HasMatchOverlappingClosure);
 
         public Task<Closure> CreateClosureAsync(ClosureInput input, CancellationToken cancellationToken) =>
-            throw new NotImplementedException();
+            Task.FromResult(Closure ?? new Closure(1, input.Scope, input.SiteId, input.StartsAt, input.EndsAt, input.Reason));
 
         public Task<Closure> UpdateClosureAsync(int closureId, ClosureInput input, CancellationToken cancellationToken) =>
-            throw new NotImplementedException();
+            Task.FromResult(Closure ?? new Closure(closureId, input.Scope, input.SiteId, input.StartsAt, input.EndsAt, input.Reason));
 
         public Task DeleteClosureAsync(int closureId, CancellationToken cancellationToken) =>
             Task.CompletedTask;
