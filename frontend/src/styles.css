@@ -132,6 +132,31 @@ a {
   color: #526057;
 }
 
+.debt-panel {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 1.5rem;
+  padding: 1rem;
+  border: 1px solid #d78b22;
+  border-radius: 0.5rem;
+  background: #fff8e8;
+}
+
+.debt-panel-clear {
+  border-color: #d4e0d5;
+  background: #eef3ee;
+}
+
+.debt-panel p {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.debt-panel ul {
+  margin: 0;
+  padding-left: 1.25rem;
+}
+
 .button {
   display: inline-block;
   margin-top: 1rem;

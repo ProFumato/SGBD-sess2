@@ -367,29 +367,40 @@ public sealed class SqlMatchRepository(IConfiguration configuration) : IMatchRep
             }
 
             const string joinSql = """
-                DECLARE @DebtAmount DECIMAL(9, 2) =
-                (
-                    SELECT COALESCE(SUM(OutstandingAmount), 0)
-                    FROM pcm.Debt WITH (UPDLOCK, HOLDLOCK)
-                    WHERE OrganizerMemberId = @MemberId AND OutstandingAmount > 0
-                );
                 DECLARE @PaymentId INT;
                 DECLARE @ParticipantId INT;
+                DECLARE @OrganizerMemberId INT = (
+                    SELECT OrganizerMemberId FROM pcm.Match WHERE MatchId = @MatchId
+                );
+                DECLARE @DebtId INT;
+                DECLARE @DebtAmount DECIMAL(9, 2);
+                DECLARE @RemainingAmount DECIMAL(9, 2) = 15.00;
                 INSERT INTO pcm.Payment (PayerMemberId, Amount, PaymentStatus, PaidAt)
-                VALUES (@MemberId, 15.00 + @DebtAmount, 'Succeeded', @PaidAt);
+                VALUES (@MemberId, 15.00, 'Succeeded', @PaidAt);
                 SET @PaymentId = CONVERT(INT, SCOPE_IDENTITY());
                 INSERT INTO pcm.MatchParticipant (MatchId, MemberId, IsOrganizer, ParticipationStatus)
                 VALUES (@MatchId, @MemberId, 0, 'Confirmed');
                 SET @ParticipantId = CONVERT(INT, SCOPE_IDENTITY());
                 INSERT INTO pcm.PaymentAllocation (PaymentId, MatchParticipantId, DebtId, Amount)
                 VALUES (@PaymentId, @ParticipantId, NULL, 15.00);
-                INSERT INTO pcm.PaymentAllocation (PaymentId, DebtId, Amount)
-                SELECT @PaymentId, DebtId, OutstandingAmount
-                FROM pcm.Debt
-                WHERE OrganizerMemberId = @MemberId AND OutstandingAmount > 0;
-                UPDATE pcm.Debt
-                SET OutstandingAmount = 0, SettledAt = @PaidAt
-                WHERE OrganizerMemberId = @MemberId AND OutstandingAmount > 0;
+                WHILE @RemainingAmount > 0
+                BEGIN
+                    SELECT TOP (1) @DebtId = DebtId, @DebtAmount = OutstandingAmount
+                    FROM pcm.Debt WITH (UPDLOCK, HOLDLOCK)
+                    WHERE OrganizerMemberId = @OrganizerMemberId AND OutstandingAmount > 0
+                    ORDER BY DebtId;
+                    IF @DebtId IS NULL BREAK;
+                    DECLARE @AppliedAmount DECIMAL(9, 2) =
+                        CASE WHEN @DebtAmount < @RemainingAmount THEN @DebtAmount ELSE @RemainingAmount END;
+                    INSERT INTO pcm.PaymentAllocation (PaymentId, DebtId, Amount)
+                    VALUES (@PaymentId, @DebtId, @AppliedAmount);
+                    UPDATE pcm.Debt
+                    SET OutstandingAmount = OutstandingAmount - @AppliedAmount,
+                        SettledAt = CASE WHEN OutstandingAmount - @AppliedAmount = 0 THEN @PaidAt ELSE NULL END
+                    WHERE DebtId = @DebtId;
+                    SET @RemainingAmount -= @AppliedAmount;
+                    SET @DebtId = NULL;
+                END;
                 SELECT @ParticipantId, @PaymentId;
                 """;
             await using var join = new SqlCommand(joinSql, connection, transaction);
