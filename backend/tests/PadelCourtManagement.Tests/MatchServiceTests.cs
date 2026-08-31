@@ -119,7 +119,10 @@ public sealed class MatchServiceTests
             CancellationToken cancellationToken) =>
             Task.CompletedTask;
 
-        public Task<IReadOnlyList<PublicMatch>> GetPublicMatchesAsync(DateTime now, CancellationToken cancellationToken) =>
+        public Task<IReadOnlyList<PublicMatch>> GetPublicMatchesAsync(
+            int memberId,
+            DateTime now,
+            CancellationToken cancellationToken) =>
             Task.FromResult<IReadOnlyList<PublicMatch>>(Array.Empty<PublicMatch>());
 
         public Task<PublicMatchJoinResult> JoinPublicMatchAsync(int matchId, int memberId, DateTime paidAt, CancellationToken cancellationToken) =>

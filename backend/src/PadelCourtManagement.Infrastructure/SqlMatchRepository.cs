@@ -279,7 +279,6 @@ public sealed class SqlMatchRepository(IConfiguration configuration) : IMatchRep
                 LEFT JOIN pcm.MatchParticipant AS p ON p.MatchId = m.MatchId AND p.ParticipationStatus <> 'Removed'
                 WHERE m.Visibility = 'Public' AND m.StartsAt > @Now
                 GROUP BY m.MatchId, c.CourtId, c.Name, c.SiteId, m.StartsAt, m.EndsAt
-                HAVING COUNT(p.MatchParticipantId) < 4
             ) AS public_match
             LEFT JOIN pcm.MatchParticipant AS participant
                 ON participant.MatchId = public_match.MatchId
