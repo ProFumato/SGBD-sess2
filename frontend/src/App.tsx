@@ -1,4 +1,4 @@
-import { Link, Navigate, Route, Routes } from "react-router-dom";
+import { Link, Navigate, Route, Routes, useNavigate } from "react-router-dom";
 import { AppErrorBoundary } from "./components/ErrorBoundary";
 import { ErrorState } from "./components/Feedback";
 import { IdentityPage } from "./components/IdentityPage";
@@ -40,9 +40,12 @@ function AppShell() {
   return (
     <div className="app-shell">
       <header className="app-header">
-        <div>
-          <p className="eyebrow">Padel Court Management</p>
-          <h1>Club operations</h1>
+        <div className="app-header-left">
+          <BackButton />
+          <div>
+            <p className="eyebrow">Padel Court Management</p>
+            <h1>Club operations</h1>
+          </div>
         </div>
         {identity && (
           <button className="button button-secondary" type="button" onClick={clearIdentity}>
@@ -70,6 +73,25 @@ function AppShell() {
         <span>Times are shown in Europe/Brussels.</span>
       </footer>
     </div>
+  );
+}
+
+function BackButton() {
+  const navigate = useNavigate();
+
+  const handleBack = () => {
+    if (window.history.length > 1) {
+      navigate(-1);
+      return;
+    }
+
+    navigate("/");
+  };
+
+  return (
+    <button className="back-button" type="button" onClick={handleBack} aria-label="Go back to previous page">
+      ← Back
+    </button>
   );
 }
 

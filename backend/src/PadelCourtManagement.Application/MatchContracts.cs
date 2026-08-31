@@ -52,6 +52,6 @@ public interface IMatchRepository
         int replacementMemberId,
         DateTime now,
         CancellationToken cancellationToken);
-    Task<IReadOnlyList<PublicMatch>> GetPublicMatchesAsync(DateTime now, CancellationToken cancellationToken);
+    Task<IReadOnlyList<PublicMatch>> GetPublicMatchesAsync(int memberId, DateTime now, CancellationToken cancellationToken);
     Task<PublicMatchJoinResult> JoinPublicMatchAsync(int matchId, int memberId, DateTime paidAt, CancellationToken cancellationToken);
 }

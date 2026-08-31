@@ -264,30 +264,71 @@ public sealed class SqlMatchRepository(IConfiguration configuration) : IMatchRep
         }
     }
 
-    public async Task<IReadOnlyList<PublicMatch>> GetPublicMatchesAsync(DateTime now, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<PublicMatch>> GetPublicMatchesAsync(int memberId, DateTime now, CancellationToken cancellationToken)
     {
         const string sql = """
-            SELECT m.MatchId, c.CourtId, c.Name, c.SiteId, m.StartsAt, m.EndsAt,
-                   4 - COUNT(p.MatchParticipantId) AS AvailablePlaces
-            FROM pcm.Match AS m
-            INNER JOIN pcm.Court AS c ON c.CourtId = m.CourtId
-            LEFT JOIN pcm.MatchParticipant AS p ON p.MatchId = m.MatchId AND p.ParticipationStatus <> 'Removed'
-            WHERE m.Visibility = 'Public' AND m.StartsAt > @Now
-            GROUP BY m.MatchId, c.CourtId, c.Name, c.SiteId, m.StartsAt, m.EndsAt
-            HAVING COUNT(p.MatchParticipantId) < 4
-            ORDER BY m.StartsAt, c.Name;
+            SELECT public_match.MatchId, public_match.CourtId, public_match.CourtName, public_match.SiteId,
+                   public_match.StartsAt, public_match.EndsAt, public_match.AvailablePlaces,
+                   member.MemberId, member.Matricule, member.DisplayName
+            FROM
+            (
+                SELECT m.MatchId, c.CourtId, c.Name AS CourtName, c.SiteId, m.StartsAt, m.EndsAt,
+                       4 - COUNT(p.MatchParticipantId) AS AvailablePlaces
+                FROM pcm.Match AS m
+                INNER JOIN pcm.Court AS c ON c.CourtId = m.CourtId
+                LEFT JOIN pcm.MatchParticipant AS p ON p.MatchId = m.MatchId AND p.ParticipationStatus <> 'Removed'
+                WHERE m.Visibility = 'Public' AND m.StartsAt > @Now
+                GROUP BY m.MatchId, c.CourtId, c.Name, c.SiteId, m.StartsAt, m.EndsAt
+                HAVING COUNT(p.MatchParticipantId) < 4
+            ) AS public_match
+            LEFT JOIN pcm.MatchParticipant AS participant
+                ON participant.MatchId = public_match.MatchId
+               AND participant.ParticipationStatus <> 'Removed'
+            LEFT JOIN pcm.Member AS member ON member.MemberId = participant.MemberId
+            ORDER BY public_match.StartsAt, public_match.CourtName,
+                     CASE WHEN member.MemberId = @MemberId THEN 0 ELSE 1 END,
+                     member.DisplayName;
             """;
         await using var connection = new SqlConnection(connectionString);
         await connection.OpenAsync(cancellationToken);
         await using var command = new SqlCommand(sql, connection);
         command.Parameters.Add("@Now", SqlDbType.DateTime2).Value = now;
+        command.Parameters.Add("@MemberId", SqlDbType.Int).Value = memberId;
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
         var matches = new List<PublicMatch>();
         while (await reader.ReadAsync(cancellationToken))
         {
-            matches.Add(new PublicMatch(
-                reader.GetInt32(0), reader.GetInt32(1), reader.GetString(2), reader.GetInt32(3),
-                reader.GetDateTime(4), reader.GetDateTime(5), reader.GetInt32(6)));
+            var matchId = reader.GetInt32(0);
+            var participants = matches.LastOrDefault()?.MatchId == matchId
+                ? matches[^1].Participants.ToList()
+                : [];
+
+            if (!reader.IsDBNull(7))
+            {
+                participants.Add(new PublicMatchParticipant(
+                    reader.GetInt32(7),
+                    reader.GetString(8),
+                    reader.GetString(9)));
+            }
+
+            var match = new PublicMatch(
+                matchId,
+                reader.GetInt32(1),
+                reader.GetString(2),
+                reader.GetInt32(3),
+                reader.GetDateTime(4),
+                reader.GetDateTime(5),
+                reader.GetInt32(6),
+                participants);
+
+            if (matches.LastOrDefault()?.MatchId == matchId)
+            {
+                matches[^1] = match;
+            }
+            else
+            {
+                matches.Add(match);
+            }
         }
 
         return matches;

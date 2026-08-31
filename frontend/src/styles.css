@@ -52,6 +52,26 @@ a {
   padding: 2rem 0;
 }
 
+.app-header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.back-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.6rem 0.85rem;
+  border: 1px solid #c7d5c8;
+  border-radius: 999px;
+  background: #fff;
+  color: #17633d;
+  cursor: pointer;
+  font-weight: 700;
+  line-height: 1;
+}
+
 .app-main {
   flex: 1;
   padding: 2rem 0 4rem;
@@ -345,6 +365,22 @@ select:disabled {
   color: #17633d;
   font-size: 0.9rem;
   font-weight: 700;
+}
+
+.public-match-players {
+  display: grid;
+  gap: 0.35rem;
+  margin-top: 0.4rem;
+}
+
+.public-match-players ul {
+  margin: 0;
+  padding-left: 1.2rem;
+  color: #17211b;
+}
+
+.public-match-players li + li {
+  margin-top: 0.2rem;
 }
 
 .public-match-card .button {

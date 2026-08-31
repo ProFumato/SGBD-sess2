@@ -107,8 +107,8 @@ public sealed class MatchService(IMatchRepository repository) : IMatchService
 
     public async Task<IReadOnlyList<PublicMatch>> GetPublicMatchesAsync(string matricule, CancellationToken cancellationToken)
     {
-        _ = await GetActiveMemberAsync(matricule, cancellationToken);
-        return await repository.GetPublicMatchesAsync(DateTime.UtcNow, cancellationToken);
+        var member = await GetActiveMemberAsync(matricule, cancellationToken);
+        return await repository.GetPublicMatchesAsync(member.MemberId, DateTime.UtcNow, cancellationToken);
     }
 
     public async Task<PublicMatchJoinResult> JoinPublicMatchAsync(

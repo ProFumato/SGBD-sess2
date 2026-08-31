@@ -2,6 +2,11 @@ namespace PadelCourtManagement.Domain;
 
 public sealed record PrivateParticipantInput(string OrganizerMatricule, string ParticipantMatricule);
 
+public sealed record PublicMatchParticipant(
+    int MemberId,
+    string Matricule,
+    string DisplayName);
+
 public sealed record PublicMatch(
     int MatchId,
     int CourtId,
@@ -9,7 +14,8 @@ public sealed record PublicMatch(
     int SiteId,
     DateTime StartsAt,
     DateTime EndsAt,
-    int AvailablePlaces);
+    int AvailablePlaces,
+    IReadOnlyList<PublicMatchParticipant> Participants);
 
 public sealed record PublicMatchJoinResult(int MatchId, int MatchParticipantId, int PaymentId);
 

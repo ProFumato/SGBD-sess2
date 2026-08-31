@@ -1,5 +1,11 @@
 import { apiRequest } from "./client";
 
+export interface PublicMatchParticipant {
+  memberId: number;
+  matricule: string;
+  displayName: string;
+}
+
 export interface PublicMatch {
   matchId: number;
   courtId: number;
@@ -8,6 +14,7 @@ export interface PublicMatch {
   startsAt: string;
   endsAt: string;
   availablePlaces: number;
+  participants: PublicMatchParticipant[];
 }
 
 export interface PublicMatchJoinResult {
