@@ -1,4 +1,8 @@
-import { Link, Navigate, Route, Routes } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, Navigate, Route, Routes, useNavigate } from "react-router-dom";
+import { getOutstandingDebts, type MemberDebt } from "./api/debt";
+import { ApiError } from "./api/client";
+import { formatBrusselsDateTime } from "./formatting/dateTime";
 import { AppErrorBoundary } from "./components/ErrorBoundary";
 import { ErrorState } from "./components/Feedback";
 import { IdentityPage } from "./components/IdentityPage";
@@ -40,9 +44,12 @@ function AppShell() {
   return (
     <div className="app-shell">
       <header className="app-header">
-        <div>
-          <p className="eyebrow">Padel Court Management</p>
-          <h1>Club operations</h1>
+        <div className="app-header-left">
+          <BackButton />
+          <div>
+            <p className="eyebrow">Padel Court Management</p>
+            <h1>Club operations</h1>
+          </div>
         </div>
         {identity && (
           <button className="button button-secondary" type="button" onClick={clearIdentity}>
@@ -73,6 +80,25 @@ function AppShell() {
   );
 }
 
+function BackButton() {
+  const navigate = useNavigate();
+
+  const handleBack = () => {
+    if (window.history.length > 1) {
+      navigate(-1);
+      return;
+    }
+
+    navigate("/");
+  };
+
+  return (
+    <button className="back-button" type="button" onClick={handleBack} aria-label="Go back to previous page">
+      ← Back
+    </button>
+  );
+}
+
 function MemberGuard() {
   const { identity } = useIdentity();
   if (!identity || !identity.member.isActive) return <Navigate to="/identity" replace />;
@@ -92,7 +118,51 @@ function MemberGuard() {
       <Link className="button button-secondary" to="/member/matches">
         My private games
       </Link>
+      <DebtPanel matricule={identity.member.matricule} />
     </section>
+  );
+}
+
+function DebtPanel({ matricule }: { matricule: string }) {
+  const [debts, setDebts] = useState<MemberDebt[]>([]);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    void getOutstandingDebts(matricule)
+      .then(setDebts)
+      .catch((caughtError: unknown) => {
+        setError(caughtError instanceof ApiError ? caughtError.message : "Debt information could not be loaded.");
+      });
+  }, [matricule]);
+
+  if (error) return <ErrorState>{error}</ErrorState>;
+  if (debts.length === 0) {
+    return (
+      <div className="debt-panel debt-panel-clear">
+        <strong>No outstanding debt</strong>
+        <span>Your matches are fully covered.</span>
+      </div>
+    );
+  }
+
+  const total = debts.reduce((sum, debt) => sum + debt.outstandingAmount, 0);
+  return (
+    <div className="debt-panel" aria-labelledby="debt-title">
+      <strong id="debt-title">Outstanding debt: €{total.toFixed(2)}</strong>
+      <p>
+        This amount is created the day before a match when a private game has fewer than four confirmed players.
+        It represents the missing €15 places and is automatically included in your next successful organizer payment.
+      </p>
+      <ul>
+        {debts.map((debt) => (
+          <li key={debt.debtId}>
+            Match #{debt.matchId} · {debt.courtName} · {formatBrusselsDateTime(debt.startsAt)}:{" "}
+            <strong>€{debt.outstandingAmount.toFixed(2)}</strong>
+            <span className="muted"> (originally €{debt.initialAmount.toFixed(2)})</span>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 

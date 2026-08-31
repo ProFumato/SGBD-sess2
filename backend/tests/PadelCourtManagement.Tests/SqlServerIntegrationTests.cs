@@ -204,8 +204,8 @@ public sealed class SqlServerIntegrationTests
                 .PayParticipantAsync(matchId, database.MemberMatricule, CancellationToken.None);
 
             Assert.Equal(participantId, result.MatchParticipantId);
-            Assert.Equal(45m, result.TotalAmount);
-            Assert.Equal(30m, result.DebtAmount);
+            Assert.Equal(15m, result.TotalAmount);
+            Assert.Equal(15m, result.DebtAmount);
 
             var state = await database.QuerySingleAsync(
                 """
@@ -224,7 +224,7 @@ public sealed class SqlServerIntegrationTests
                 });
 
             Assert.Equal("Confirmed", state[0]);
-            Assert.Equal(0m, state[1]);
+            Assert.Equal(15m, state[1]);
             Assert.Equal(2, state[2]);
 
             var participant = await new SqlMatchRepository(database.Configuration)

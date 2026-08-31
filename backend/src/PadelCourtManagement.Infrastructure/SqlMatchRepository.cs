@@ -264,30 +264,70 @@ public sealed class SqlMatchRepository(IConfiguration configuration) : IMatchRep
         }
     }
 
-    public async Task<IReadOnlyList<PublicMatch>> GetPublicMatchesAsync(DateTime now, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<PublicMatch>> GetPublicMatchesAsync(int memberId, DateTime now, CancellationToken cancellationToken)
     {
         const string sql = """
-            SELECT m.MatchId, c.CourtId, c.Name, c.SiteId, m.StartsAt, m.EndsAt,
-                   4 - COUNT(p.MatchParticipantId) AS AvailablePlaces
-            FROM pcm.Match AS m
-            INNER JOIN pcm.Court AS c ON c.CourtId = m.CourtId
-            LEFT JOIN pcm.MatchParticipant AS p ON p.MatchId = m.MatchId AND p.ParticipationStatus <> 'Removed'
-            WHERE m.Visibility = 'Public' AND m.StartsAt > @Now
-            GROUP BY m.MatchId, c.CourtId, c.Name, c.SiteId, m.StartsAt, m.EndsAt
-            HAVING COUNT(p.MatchParticipantId) < 4
-            ORDER BY m.StartsAt, c.Name;
+            SELECT public_match.MatchId, public_match.CourtId, public_match.CourtName, public_match.SiteId,
+                   public_match.StartsAt, public_match.EndsAt, public_match.AvailablePlaces,
+                   member.MemberId, member.Matricule, member.DisplayName
+            FROM
+            (
+                SELECT m.MatchId, c.CourtId, c.Name AS CourtName, c.SiteId, m.StartsAt, m.EndsAt,
+                       4 - COUNT(p.MatchParticipantId) AS AvailablePlaces
+                FROM pcm.Match AS m
+                INNER JOIN pcm.Court AS c ON c.CourtId = m.CourtId
+                LEFT JOIN pcm.MatchParticipant AS p ON p.MatchId = m.MatchId AND p.ParticipationStatus <> 'Removed'
+                WHERE m.Visibility = 'Public' AND m.StartsAt > @Now
+                GROUP BY m.MatchId, c.CourtId, c.Name, c.SiteId, m.StartsAt, m.EndsAt
+            ) AS public_match
+            LEFT JOIN pcm.MatchParticipant AS participant
+                ON participant.MatchId = public_match.MatchId
+               AND participant.ParticipationStatus <> 'Removed'
+            LEFT JOIN pcm.Member AS member ON member.MemberId = participant.MemberId
+            ORDER BY public_match.StartsAt, public_match.CourtName,
+                     CASE WHEN member.MemberId = @MemberId THEN 0 ELSE 1 END,
+                     member.DisplayName;
             """;
         await using var connection = new SqlConnection(connectionString);
         await connection.OpenAsync(cancellationToken);
         await using var command = new SqlCommand(sql, connection);
         command.Parameters.Add("@Now", SqlDbType.DateTime2).Value = now;
+        command.Parameters.Add("@MemberId", SqlDbType.Int).Value = memberId;
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
         var matches = new List<PublicMatch>();
         while (await reader.ReadAsync(cancellationToken))
         {
-            matches.Add(new PublicMatch(
-                reader.GetInt32(0), reader.GetInt32(1), reader.GetString(2), reader.GetInt32(3),
-                reader.GetDateTime(4), reader.GetDateTime(5), reader.GetInt32(6)));
+            var matchId = reader.GetInt32(0);
+            var participants = matches.LastOrDefault()?.MatchId == matchId
+                ? matches[^1].Participants.ToList()
+                : [];
+
+            if (!reader.IsDBNull(7))
+            {
+                participants.Add(new PublicMatchParticipant(
+                    reader.GetInt32(7),
+                    reader.GetString(8),
+                    reader.GetString(9)));
+            }
+
+            var match = new PublicMatch(
+                matchId,
+                reader.GetInt32(1),
+                reader.GetString(2),
+                reader.GetInt32(3),
+                reader.GetDateTime(4),
+                reader.GetDateTime(5),
+                reader.GetInt32(6),
+                participants);
+
+            if (matches.LastOrDefault()?.MatchId == matchId)
+            {
+                matches[^1] = match;
+            }
+            else
+            {
+                matches.Add(match);
+            }
         }
 
         return matches;
@@ -327,29 +367,40 @@ public sealed class SqlMatchRepository(IConfiguration configuration) : IMatchRep
             }
 
             const string joinSql = """
-                DECLARE @DebtAmount DECIMAL(9, 2) =
-                (
-                    SELECT COALESCE(SUM(OutstandingAmount), 0)
-                    FROM pcm.Debt WITH (UPDLOCK, HOLDLOCK)
-                    WHERE OrganizerMemberId = @MemberId AND OutstandingAmount > 0
-                );
                 DECLARE @PaymentId INT;
                 DECLARE @ParticipantId INT;
+                DECLARE @OrganizerMemberId INT = (
+                    SELECT OrganizerMemberId FROM pcm.Match WHERE MatchId = @MatchId
+                );
+                DECLARE @DebtId INT;
+                DECLARE @DebtAmount DECIMAL(9, 2);
+                DECLARE @RemainingAmount DECIMAL(9, 2) = 15.00;
                 INSERT INTO pcm.Payment (PayerMemberId, Amount, PaymentStatus, PaidAt)
-                VALUES (@MemberId, 15.00 + @DebtAmount, 'Succeeded', @PaidAt);
+                VALUES (@MemberId, 15.00, 'Succeeded', @PaidAt);
                 SET @PaymentId = CONVERT(INT, SCOPE_IDENTITY());
                 INSERT INTO pcm.MatchParticipant (MatchId, MemberId, IsOrganizer, ParticipationStatus)
                 VALUES (@MatchId, @MemberId, 0, 'Confirmed');
                 SET @ParticipantId = CONVERT(INT, SCOPE_IDENTITY());
                 INSERT INTO pcm.PaymentAllocation (PaymentId, MatchParticipantId, DebtId, Amount)
                 VALUES (@PaymentId, @ParticipantId, NULL, 15.00);
-                INSERT INTO pcm.PaymentAllocation (PaymentId, DebtId, Amount)
-                SELECT @PaymentId, DebtId, OutstandingAmount
-                FROM pcm.Debt
-                WHERE OrganizerMemberId = @MemberId AND OutstandingAmount > 0;
-                UPDATE pcm.Debt
-                SET OutstandingAmount = 0, SettledAt = @PaidAt
-                WHERE OrganizerMemberId = @MemberId AND OutstandingAmount > 0;
+                WHILE @RemainingAmount > 0
+                BEGIN
+                    SELECT TOP (1) @DebtId = DebtId, @DebtAmount = OutstandingAmount
+                    FROM pcm.Debt WITH (UPDLOCK, HOLDLOCK)
+                    WHERE OrganizerMemberId = @OrganizerMemberId AND OutstandingAmount > 0
+                    ORDER BY DebtId;
+                    IF @DebtId IS NULL BREAK;
+                    DECLARE @AppliedAmount DECIMAL(9, 2) =
+                        CASE WHEN @DebtAmount < @RemainingAmount THEN @DebtAmount ELSE @RemainingAmount END;
+                    INSERT INTO pcm.PaymentAllocation (PaymentId, DebtId, Amount)
+                    VALUES (@PaymentId, @DebtId, @AppliedAmount);
+                    UPDATE pcm.Debt
+                    SET OutstandingAmount = OutstandingAmount - @AppliedAmount,
+                        SettledAt = CASE WHEN OutstandingAmount - @AppliedAmount = 0 THEN @PaidAt ELSE NULL END
+                    WHERE DebtId = @DebtId;
+                    SET @RemainingAmount -= @AppliedAmount;
+                    SET @DebtId = NULL;
+                END;
                 SELECT @ParticipantId, @PaymentId;
                 """;
             await using var join = new SqlCommand(joinSql, connection, transaction);

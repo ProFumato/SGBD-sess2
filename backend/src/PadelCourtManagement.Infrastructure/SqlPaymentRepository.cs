@@ -86,7 +86,7 @@ public sealed class SqlPaymentRepository(IConfiguration configuration) : IPaymen
                 throw new ReservationConflictException("The match can no longer be paid.");
             }
 
-            var debtIds = new List<int>();
+            var debtsToSettle = new List<(int Id, decimal Amount)>();
             decimal debtAmount = 0m;
             if (outcome == PaymentOutcome.Succeeded && memberId == organizerId)
             {
@@ -101,15 +101,15 @@ public sealed class SqlPaymentRepository(IConfiguration configuration) : IPaymen
                 await using var debtReader = await debts.ExecuteReaderAsync(cancellationToken);
                 while (await debtReader.ReadAsync(cancellationToken))
                 {
-                    debtIds.Add(debtReader.GetInt32(0));
-                    debtAmount += debtReader.GetDecimal(1);
+                    var amount = debtReader.GetDecimal(1);
+                    debtsToSettle.Add((debtReader.GetInt32(0), amount));
+                    debtAmount += amount;
                 }
             }
 
             const decimal participantAmount = 15.00m;
-            var totalAmount = outcome == PaymentOutcome.Succeeded
-                ? participantAmount + debtAmount
-                : participantAmount;
+            debtAmount = Math.Min(debtAmount, participantAmount);
+            var totalAmount = participantAmount;
             int paymentId;
             const string paymentSql = """
                 INSERT INTO pcm.Payment (PayerMemberId, Amount, PaymentStatus, PaidAt)
@@ -151,23 +151,38 @@ public sealed class SqlPaymentRepository(IConfiguration configuration) : IPaymen
                     await allocation.ExecuteNonQueryAsync(cancellationToken);
                 }
 
-                foreach (var debtId in debtIds)
+                var remainingDebtPayment = participantAmount;
+                foreach (var debtEntry in debtsToSettle)
                 {
+                    if (remainingDebtPayment <= 0) break;
                     const string debtSql = """
-                        INSERT INTO pcm.PaymentAllocation (PaymentId, DebtId, Amount)
-                        SELECT @PaymentId, DebtId, OutstandingAmount
-                        FROM pcm.Debt
+                        DECLARE @OutstandingAmount DECIMAL(9, 2);
+                        SELECT @OutstandingAmount = OutstandingAmount
+                        FROM pcm.Debt WITH (UPDLOCK, HOLDLOCK)
                         WHERE DebtId = @DebtId AND OutstandingAmount > 0;
-
+                        DECLARE @AppliedAmount DECIMAL(9, 2) =
+                            CASE WHEN @OutstandingAmount < @RemainingAmount
+                                 THEN @OutstandingAmount ELSE @RemainingAmount END;
+                        IF @AppliedAmount > 0
+                        BEGIN
+                            INSERT INTO pcm.PaymentAllocation (PaymentId, DebtId, Amount)
+                            VALUES (@PaymentId, @DebtId, @AppliedAmount);
+                        END;
                         UPDATE pcm.Debt
-                        SET OutstandingAmount = 0, SettledAt = @PaidAt
+                        SET OutstandingAmount = OutstandingAmount - @AppliedAmount,
+                            SettledAt = CASE WHEN OutstandingAmount - @AppliedAmount = 0 THEN @PaidAt ELSE NULL END
                         WHERE DebtId = @DebtId AND OutstandingAmount > 0;
+                        SET @RemainingAmount -= @AppliedAmount;
                         """;
-                    await using var debt = new SqlCommand(debtSql, connection, transaction);
-                    debt.Parameters.Add("@PaymentId", SqlDbType.Int).Value = paymentId;
-                    debt.Parameters.Add("@DebtId", SqlDbType.Int).Value = debtId;
-                    debt.Parameters.Add("@PaidAt", SqlDbType.DateTime2).Value = paidAt;
-                    await debt.ExecuteNonQueryAsync(cancellationToken);
+                    await using var debtCommand = new SqlCommand(debtSql, connection, transaction);
+                    debtCommand.Parameters.Add("@PaymentId", SqlDbType.Int).Value = paymentId;
+                    debtCommand.Parameters.Add("@DebtId", SqlDbType.Int).Value = debtEntry.Id;
+                    debtCommand.Parameters.Add("@PaidAt", SqlDbType.DateTime2).Value = paidAt;
+                    debtCommand.Parameters.Add("@RemainingAmount", SqlDbType.Decimal).Value = remainingDebtPayment;
+                    debtCommand.Parameters["@RemainingAmount"].Precision = 9;
+                    debtCommand.Parameters["@RemainingAmount"].Scale = 2;
+                    await debtCommand.ExecuteNonQueryAsync(cancellationToken);
+                    remainingDebtPayment -= Math.Min(remainingDebtPayment, debtEntry.Amount);
                 }
             }
 

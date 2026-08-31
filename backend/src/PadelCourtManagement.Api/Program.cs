@@ -37,6 +37,7 @@ builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddHostedService<DayBeforeProcessingHostedService>();
 builder.Services.AddScoped<IAvailabilityRepository, SqlAvailabilityRepository>();
 builder.Services.AddScoped<IMatchRepository, SqlMatchRepository>();
+builder.Services.AddScoped<IDebtRepository, SqlDebtRepository>();
 builder.Services.AddScoped<IPaymentRepository, SqlPaymentRepository>();
 builder.Services.AddScoped<IDayBeforeRepository, SqlDayBeforeRepository>();
 builder.Services.AddScoped<IStatisticsRepository, SqlStatisticsRepository>();
@@ -395,6 +396,32 @@ matches.MapPost("/{matchId:int}/payment", async (
         matricule,
         cancellationToken,
         outcome ?? PaymentOutcome.Succeeded)));
+
+var debts = app.MapGroup("/api/debts")
+    .AddEndpointFilter<AdministrationExceptionFilter>();
+debts.MapGet("/", async (
+    string matricule,
+    IDebtService service,
+    CancellationToken cancellationToken) =>
+    Results.Ok(await service.GetOutstandingDebtsAsync(matricule, cancellationToken)))
+    .WithName("ListOutstandingDebts");
+debts.MapGet("/admin/{memberMatricule}", async (
+    HttpContext context,
+    string memberMatricule,
+    IDebtService service,
+    CancellationToken cancellationToken) =>
+    Results.Ok(await service.GetDebtsForAdministratorAsync(
+        context.GetActorMatricule(), memberMatricule, cancellationToken)));
+debts.MapDelete("/admin/{memberMatricule}", async (
+    HttpContext context,
+    string memberMatricule,
+    IDebtService service,
+    CancellationToken cancellationToken) =>
+    {
+        await service.ClearDebtsForAdministratorAsync(
+            context.GetActorMatricule(), memberMatricule, cancellationToken);
+        return Results.NoContent();
+    });
 
 var processing = app.MapGroup("/api/processing")
     .AddEndpointFilter<AdministrationExceptionFilter>();

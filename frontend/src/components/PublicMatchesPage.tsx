@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { ApiError } from "../api/client";
-import { getPublicMatches, joinPublicMatch, type PublicMatch, type PublicMatchJoinResult } from "../api/matches";
+import { getPublicMatches, joinPublicMatch, type PublicMatch } from "../api/matches";
 import { getReservationSites, type ReservationSite } from "../api/availability";
 import { formatBrusselsDateTime, formatBrusselsTime } from "../formatting/dateTime";
 import { useIdentity } from "../state/identity";
@@ -12,7 +12,7 @@ export function PublicMatchesPage() {
   const [sites, setSites] = useState<ReservationSite[]>([]);
   const [siteFilter, setSiteFilter] = useState("");
   const [dateFilter, setDateFilter] = useState("");
-  const [joined, setJoined] = useState<PublicMatchJoinResult | null>(null);
+  const [joinedMatchId, setJoinedMatchId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [joiningId, setJoiningId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -57,7 +57,8 @@ export function PublicMatchesPage() {
     setJoiningId(match.matchId);
     setError(null);
     try {
-      setJoined(await joinPublicMatch(match.matchId, identity.member.matricule));
+      const joinResult = await joinPublicMatch(match.matchId, identity.member.matricule);
+      setJoinedMatchId(joinResult.matchId);
       await loadMatches();
     } catch (caughtError) {
       if (caughtError instanceof ApiError && caughtError.status === 409) {
@@ -75,21 +76,17 @@ export function PublicMatchesPage() {
   }
 
   if (loading) return <LoadingState label="Loading public matches..." />;
-  if (joined) {
-    return (
-      <section className="content-card" aria-labelledby="join-success-title">
-        <p className="eyebrow">Join confirmed</p>
-        <h2 id="join-success-title">You joined match #{joined.matchId}.</h2>
-        <p>Your €15 place payment was accepted. Payment #{joined.paymentId} confirms your place.</p>
-      </section>
-    );
-  }
 
   return (
     <section className="content-card" aria-labelledby="public-matches-title">
       <p className="eyebrow">Public matches</p>
       <h2 id="public-matches-title">Find a game across sites</h2>
       <p className="muted">Joining pays and confirms one €15 place atomically. The first successful payment gets the place.</p>
+      {joinedMatchId && (
+        <div className="feedback" role="status">
+          You joined match #{joinedMatchId}. Your €15 place is confirmed.
+        </div>
+      )}
       <div className="filter-row">
         <label htmlFor="public-site-filter">Site</label>
         <select id="public-site-filter" value={siteFilter} onChange={(event) => setSiteFilter(event.target.value)}>
@@ -102,20 +99,48 @@ export function PublicMatchesPage() {
       {error && <ErrorState>{error}</ErrorState>}
       {filteredMatches.length === 0 && <EmptyState>No public matches match the selected filters.</EmptyState>}
       <div className="public-match-list">
-        {filteredMatches.map((match) => (
-          <article className="public-match-card" key={match.matchId}>
-            <div>
-              <h3>Match #{match.matchId}</h3>
-              <p>
-                {sites.find((site) => site.siteId === match.siteId)?.name ?? `Site ${match.siteId}`} · {match.courtName} · {formatBrusselsDateTime(match.startsAt)}–{formatBrusselsTime(match.endsAt)}
-              </p>
-              <span className="muted">{match.availablePlaces} open place{match.availablePlaces === 1 ? "" : "s"} · Organizer details unavailable from API</span>
-            </div>
-            <button className="button" type="button" disabled={joiningId !== null || match.availablePlaces <= 0} onClick={() => void handleJoin(match)}>
-              {joiningId === match.matchId ? "Joining..." : "Join for €15"}
-            </button>
-          </article>
-        ))}
+        {filteredMatches.map((match) => {
+          const isCurrentMemberJoined = match.participants.some((participant) => participant.matricule === identity?.member.matricule);
+          const buttonLabel = joiningId === match.matchId
+            ? "Joining..."
+            : isCurrentMemberJoined
+              ? "Joined"
+              : match.availablePlaces <= 0
+                ? "Full"
+                : "Join for €15";
+
+          return (
+            <article className="public-match-card" key={match.matchId}>
+              <div>
+                <h3>Match #{match.matchId}</h3>
+                <p>
+                  {sites.find((site) => site.siteId === match.siteId)?.name ?? `Site ${match.siteId}`} · {match.courtName} · {formatBrusselsDateTime(match.startsAt)}–{formatBrusselsTime(match.endsAt)}
+                </p>
+                <div className="public-match-players">
+                  <span className="muted">Already in:</span>
+                  {match.participants.length === 0 ? (
+                    <span className="muted">No members joined yet.</span>
+                  ) : (
+                    <ul>
+                      {match.participants.map((participant) => (
+                        <li key={participant.memberId}>{participant.displayName} ({participant.matricule})</li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+                <span className="muted">{match.availablePlaces} open place{match.availablePlaces === 1 ? "" : "s"}</span>
+              </div>
+              <button
+                className="button"
+                type="button"
+                disabled={joiningId !== null || isCurrentMemberJoined || match.availablePlaces <= 0}
+                onClick={() => void handleJoin(match)}
+              >
+                {buttonLabel}
+              </button>
+            </article>
+          );
+        })}
       </div>
     </section>
   );

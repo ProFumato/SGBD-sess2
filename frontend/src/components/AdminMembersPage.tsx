@@ -15,6 +15,7 @@ import {
 } from "../api/administration";
 import { useIdentity } from "../state/identity";
 import { ErrorState, LoadingState } from "./Feedback";
+import { clearMemberDebts, getMemberDebts } from "../api/debt";
 
 const emptyMember = {
   matricule: "",
@@ -91,6 +92,37 @@ export function AdminMembersPage() {
     }
   }
 
+  async function inspectDebt(member: AdminMember) {
+      setBusy(true);
+      setError(null);
+      try {
+        const debts = await getMemberDebts(actor, member.matricule);
+        const total = debts.reduce((sum, debt) => sum + debt.outstandingAmount, 0);
+        window.alert(
+          total > 0
+            ? `${member.displayName} has €${total.toFixed(2)} outstanding debt across ${debts.length} match(es).`
+            : `${member.displayName} has no outstanding debt.`,
+        );
+      } catch (caughtError) {
+        setError(caughtError instanceof ApiError ? caughtError.message : "The member debt could not be loaded.");
+      } finally {
+        setBusy(false);
+      }
+    }
+
+  async function clearDebt(member: AdminMember) {
+      if (!window.confirm(`Remove all outstanding debt for ${member.displayName}?`)) return;
+      setBusy(true);
+      setError(null);
+      try {
+        await clearMemberDebts(actor, member.matricule);
+      } catch (caughtError) {
+        setError(caughtError instanceof ApiError ? caughtError.message : "The member debt could not be removed.");
+      } finally {
+        setBusy(false);
+    }
+  }
+
   async function assignRole(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!isGlobalAdmin || !roleMatricule.trim()) return;
@@ -144,6 +176,12 @@ export function AdminMembersPage() {
               }}>Edit</button>
               <button className="button button-secondary" type="button" disabled={busy} onClick={() => void toggleMember(member)}>
                 {member.isActive ? "Deactivate" : "Reactivate"}
+              </button>
+              <button className="button button-secondary" type="button" disabled={busy} onClick={() => void inspectDebt(member)}>
+                Check debt
+              </button>
+              <button className="button button-danger" type="button" disabled={busy} onClick={() => void clearDebt(member)}>
+                Remove debt
               </button>
             </div>
           </article>

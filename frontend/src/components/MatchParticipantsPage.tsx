@@ -171,7 +171,7 @@ export function MatchParticipantsPage() {
         <div className={`payment-result ${paymentResult.outcome === "Failed" ? "payment-result-failed" : ""}`}>
           <strong>Payment #{paymentResult.paymentId}: {paymentResult.outcome}</strong>
           <span>
-            Place €{paymentResult.participantAmount.toFixed(2)} + debt €{paymentResult.debtAmount.toFixed(2)} = €{paymentResult.totalAmount.toFixed(2)}
+            Paid €{paymentResult.totalAmount.toFixed(2)} for the place; debt reduced by €{paymentResult.debtAmount.toFixed(2)}
           </span>
           {paymentResult.outcome === "Failed" && <span>The place remains pending; you can retry after reviewing the result.</span>}
         </div>

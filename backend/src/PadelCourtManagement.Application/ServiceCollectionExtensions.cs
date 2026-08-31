@@ -9,6 +9,7 @@ public static class ServiceCollectionExtensions
     {
         services.AddScoped<IAvailabilityService, AvailabilityService>();
         services.AddScoped<IMatchService, MatchService>();
+        services.AddScoped<IDebtService, DebtService>();
         services.AddScoped<IPaymentService, PaymentService>();
         services.AddScoped<IDayBeforeService, DayBeforeService>();
         services.AddScoped<IStatisticsService, StatisticsService>();
