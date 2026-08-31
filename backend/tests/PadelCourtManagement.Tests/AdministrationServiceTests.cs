@@ -261,7 +261,7 @@ public sealed class AdministrationServiceTests
             Task.FromResult<IReadOnlyList<SiteAnnualSchedule>>(Schedule is null ? Array.Empty<SiteAnnualSchedule>() : new[] { Schedule });
 
         public Task<SiteAnnualSchedule> SetScheduleAsync(int siteId, int calendarYear, ScheduleInput input, CancellationToken cancellationToken) =>
-            Task.FromResult(Schedule ?? new SiteAnnualSchedule(1, siteId, calendarYear, input.OpeningTime, input.ClosingTime));
+            Task.FromResult(Schedule ?? new SiteAnnualSchedule(1, siteId, calendarYear, input.GetOpeningTime(), input.GetClosingTime()));
 
         public Task DeleteScheduleAsync(int siteId, int calendarYear, CancellationToken cancellationToken) =>
             Task.CompletedTask;
