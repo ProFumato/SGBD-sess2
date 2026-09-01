@@ -31,6 +31,7 @@ GO
 
 IF OBJECT_ID(N'pcm.Member', N'U') IS NULL
 BEGIN
+    -- Matricule format, membership category, and HomeSiteId must agree even for writes outside the API.
     CREATE TABLE [pcm].[Member]
     (
         [MemberId] INT IDENTITY(1, 1) NOT NULL,
@@ -141,6 +142,7 @@ GO
 
 IF OBJECT_ID(N'pcm.Match', N'U') IS NULL
 BEGIN
+    -- A match belongs to one court and organizer; CHECK constraints keep the fixed 90-minute, EUR 60 project rule.
     CREATE TABLE [pcm].[Match]
     (
         [MatchId] INT IDENTITY(1, 1) NOT NULL,
@@ -163,6 +165,7 @@ GO
 
 IF OBJECT_ID(N'pcm.MatchParticipant', N'U') IS NULL
 BEGIN
+    -- N-N link between matches and members. Removed is kept for history because payments may still reference this row.
     CREATE TABLE [pcm].[MatchParticipant]
     (
         [MatchParticipantId] INT IDENTITY(1, 1) NOT NULL,
@@ -217,6 +220,7 @@ GO
 
 IF OBJECT_ID(N'pcm.Debt', N'U') IS NULL
 BEGIN
+    -- UQ_Debt_Match means a match can create at most one organizer debt.
     CREATE TABLE [pcm].[Debt]
     (
         [DebtId] INT IDENTITY(1, 1) NOT NULL,
@@ -246,6 +250,7 @@ GO
 
 IF OBJECT_ID(N'pcm.PaymentAllocation', N'U') IS NULL
 BEGIN
+    -- Separates the payment from what it pays for: a participant place, a debt, or both.
     CREATE TABLE [pcm].[PaymentAllocation]
     (
         [PaymentAllocationId] INT IDENTITY(1, 1) NOT NULL,
@@ -325,6 +330,7 @@ ON [pcm].[Match]
 AFTER INSERT, UPDATE
 AS
 BEGIN
+    -- DB-level fallback: SQL writes outside the API still cannot create overlapping matches or closures.
     SET NOCOUNT ON;
 
     IF EXISTS
@@ -388,6 +394,7 @@ ON [pcm].[MatchParticipant]
 AFTER INSERT, UPDATE
 AS
 BEGIN
+    -- The repository checks capacity too, but this protects direct SQL writes and concurrent inserts.
     SET NOCOUNT ON;
 
     IF EXISTS

@@ -7,6 +7,7 @@ public static class ServiceCollectionExtensions
 {
     public static IServiceCollection AddApplicationServices(this IServiceCollection services)
     {
+        // Scoped means one service instance per HTTP request (or per scope created by the background worker).
         services.AddScoped<IAvailabilityService, AvailabilityService>();
         services.AddScoped<IMatchService, MatchService>();
         services.AddScoped<IDebtService, DebtService>();
@@ -14,6 +15,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IDayBeforeService, DayBeforeService>();
         services.AddScoped<IStatisticsService, StatisticsService>();
         services.AddScoped<DayBeforeProcessingRunner>();
+        // Fail early if the worker interval is not usable instead of discovering it after deployment.
         services.AddOptions<DayBeforeProcessingOptions>()
             .BindConfiguration("DayBeforeProcessing")
             .Validate(

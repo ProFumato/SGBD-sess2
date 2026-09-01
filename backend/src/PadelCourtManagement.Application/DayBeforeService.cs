@@ -2,6 +2,7 @@ using PadelCourtManagement.Domain;
 
 namespace PadelCourtManagement.Application;
 
+// Chooses the local "tomorrow" once, then lets the repository process each matching record.
 public sealed class DayBeforeService(IDayBeforeRepository repository) : IDayBeforeService
 {
     private static readonly TimeZoneInfo BrusselsTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Europe/Brussels");
@@ -10,6 +11,7 @@ public sealed class DayBeforeService(IDayBeforeRepository repository) : IDayBefo
         DateTimeOffset now,
         CancellationToken cancellationToken)
     {
+        // The business date follows the project site timezone, not the machine or UTC calendar date.
         var brusselsNow = TimeZoneInfo.ConvertTime(now, BrusselsTimeZone);
         var matchIds = await repository.GetTomorrowMatchIdsAsync(
             DateOnly.FromDateTime(brusselsNow.DateTime).AddDays(1),

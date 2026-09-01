@@ -2,6 +2,7 @@ using PadelCourtManagement.Domain;
 
 namespace PadelCourtManagement.Application;
 
+// The service only knows this contract; Program.cs injects the SQL implementation.
 public interface IAvailabilityRepository
 {
     Task<ReservationMember?> GetMemberAsync(string matricule, CancellationToken cancellationToken);

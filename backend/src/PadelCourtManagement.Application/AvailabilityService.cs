@@ -2,6 +2,7 @@ using PadelCourtManagement.Domain;
 
 namespace PadelCourtManagement.Application;
 
+// Business decisions live here; the repository only supplies and persists the required data.
 public sealed class AvailabilityService : IAvailabilityService
 {
     private static readonly TimeZoneInfo BrusselsTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Europe/Brussels");
@@ -55,6 +56,7 @@ public sealed class AvailabilityService : IAvailabilityService
             cancellationToken)
             ?? throw new ReservationNotFoundException("The member or court does not exist.");
 
+        // These checks give business errors; critical state is checked again in SQL for concurrency.
         ValidateReservation(context, startAt, now);
         return await repository.CreateReservationAsync(
             new ReservationCommand(context.Member.MemberId, context.CourtId, startAt, request.Visibility, now),
@@ -85,6 +87,7 @@ public sealed class AvailabilityService : IAvailabilityService
             throw new ReservationForbiddenException("Inactive members cannot create reservations.");
         }
 
+        // Booking rules depend on the member category and, for site members, their home site.
         if (context.Member.MembershipCategory == MembershipCategory.Site
             && context.Member.HomeSiteId != context.SiteId)
         {
@@ -118,6 +121,7 @@ public sealed class AvailabilityService : IAvailabilityService
             throw new ReservationForbiddenException("An active booking ban blocks new reservations.");
         }
 
+        // The court must be usable on that date: yearly schedule first, then closure overlap.
         if (context.OpeningTime is null || context.ClosingTime is null)
         {
             throw new ReservationConflictException("The site has no schedule for the requested year.");

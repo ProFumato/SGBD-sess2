@@ -42,6 +42,7 @@ public sealed class SqlPaymentRepository(IConfiguration configuration) : IPaymen
     {
         await using var connection = new SqlConnection(connectionString);
         await connection.OpenAsync(cancellationToken);
+        // Keep the payment attempt, participant status, and any allocations in one atomic operation.
         using var transaction = connection.BeginTransaction(IsolationLevel.Serializable);
 
         try
@@ -61,6 +62,7 @@ public sealed class SqlPaymentRepository(IConfiguration configuration) : IPaymen
             string visibility;
             await using (var participant = new SqlCommand(participantSql, connection, transaction))
             {
+                // Lock the participant and match while checking that this place can still be paid.
                 participant.Parameters.Add("@MatchId", SqlDbType.Int).Value = matchId;
                 participant.Parameters.Add("@MemberId", SqlDbType.Int).Value = memberId;
                 await using var reader = await participant.ExecuteReaderAsync(cancellationToken);
@@ -116,6 +118,7 @@ public sealed class SqlPaymentRepository(IConfiguration configuration) : IPaymen
                 OUTPUT INSERTED.PaymentId
                 VALUES (@MemberId, @Amount, @Status, @PaidAt);
                 """;
+            // Failed attempts are kept too, but with no PaidAt value or allocation.
             await using (var payment = new SqlCommand(paymentSql, connection, transaction))
             {
                 payment.Parameters.Add("@MemberId", SqlDbType.Int).Value = memberId;
@@ -134,6 +137,7 @@ public sealed class SqlPaymentRepository(IConfiguration configuration) : IPaymen
 
             if (outcome == PaymentOutcome.Succeeded)
             {
+                // PaymentAllocation links this payment to the confirmed participant place for traceability.
                 const string participantAllocationSql = """
                     INSERT INTO pcm.PaymentAllocation (PaymentId, MatchParticipantId, Amount)
                     VALUES (@PaymentId, @ParticipantId, @Amount);

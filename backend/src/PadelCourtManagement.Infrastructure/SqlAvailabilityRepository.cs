@@ -24,10 +24,13 @@ public sealed class SqlAvailabilityRepository : IAvailabilityRepository
             WHERE Matricule = @Matricule;
             """;
 
+        // A connection is opened only for this operation, then disposed and returned to the pool.
         await using var connection = CreateConnection();
         await connection.OpenAsync(cancellationToken);
         await using var command = CreateCommand(connection, sql);
+        // Values are sent as typed SQL parameters, not concatenated into the query text.
         Add(command, "@Matricule", SqlDbType.VarChar, matricule);
+        // ExecuteReader reads the selected row; ReadMember maps SQL columns to the domain record.
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
         return await reader.ReadAsync(cancellationToken) ? ReadMember(reader) : null;
     }
@@ -161,12 +164,15 @@ public sealed class SqlAvailabilityRepository : IAvailabilityRepository
     {
         await using var connection = CreateConnection();
         await connection.OpenAsync(cancellationToken);
+        // Serializable plus update locks prevents concurrent reservations from both seeing the same free slot.
         using var transaction = connection.BeginTransaction(IsolationLevel.Serializable);
         try
         {
+            // Availability shown earlier can already be stale, so recheck rules and the slot inside the transaction.
             await EnsureReservationStateAsync(connection, transaction, command, cancellationToken);
             await EnsureCourtAvailabilityAsync(connection, transaction, command, cancellationToken);
 
+            // A match without its organizer participant is invalid, so both inserts commit together or roll back.
             var matchId = await InsertMatchAsync(connection, transaction, command, cancellationToken);
             await InsertOrganizerAsync(connection, transaction, matchId, command.MemberId, cancellationToken);
             await transaction.CommitAsync(cancellationToken);
@@ -228,6 +234,7 @@ public sealed class SqlAvailabilityRepository : IAvailabilityRepository
             ) THEN 1 ELSE 0 END;
             """;
 
+        // UPDLOCK/HOLDLOCK keep the eligibility rows stable until this Serializable transaction finishes.
         await using var commandSql = CreateCommand(connection, sql, transaction);
         Add(commandSql, "@MemberId", SqlDbType.Int, command.MemberId);
         Add(commandSql, "@CourtId", SqlDbType.Int, command.CourtId);

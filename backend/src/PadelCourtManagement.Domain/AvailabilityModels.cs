@@ -6,6 +6,7 @@ public enum ReservationVisibility
     Public
 }
 
+// These records are also the HTTP request/response contracts in this project; there is no separate API mapping layer.
 public sealed record AvailabilityRequest(
     string Matricule,
     int SiteId,

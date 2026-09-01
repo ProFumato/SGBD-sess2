@@ -8,6 +8,8 @@ public sealed class AvailabilityServiceTests
     [Fact]
     public async Task ActiveGlobalMemberCanCreateEligibleReservation()
     {
+        // arrange
+        // Simple fake repository: this test checks service rules without SQL Server.
         var repository = new FakeAvailabilityRepository
         {
             Context = CreateContext()
@@ -15,10 +17,12 @@ public sealed class AvailabilityServiceTests
         var service = new AvailabilityService(repository);
         var date = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(7));
 
+        // act
         var result = await service.CreateReservationAsync(
             new ReservationRequest("g0001", 10, date, new TimeOnly(10, 0), ReservationVisibility.Public),
             CancellationToken.None);
 
+        // assert; the fake records the command received from the service.
         Assert.Equal(42, result.MatchId);
         Assert.Equal(1, repository.CreateCalls);
         Assert.Equal(10, repository.LastCommand!.CourtId);

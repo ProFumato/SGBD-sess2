@@ -43,6 +43,7 @@ public sealed class SqlDayBeforeRepository(IConfiguration configuration) : IDayB
     {
         await using var connection = new SqlConnection(connectionString);
         await connection.OpenAsync(cancellationToken);
+        // One transaction keeps all day-before transitions for this match consistent under concurrent runs.
         using var transaction = connection.BeginTransaction(IsolationLevel.Serializable);
 
         try
@@ -69,6 +70,7 @@ public sealed class SqlDayBeforeRepository(IConfiguration configuration) : IDayB
 
                 IF @Visibility = 'Private'
                 BEGIN
+                    -- Keep removed rows for payment/history links instead of deleting participants.
                     UPDATE pcm.MatchParticipant
                     SET ParticipationStatus = 'Removed'
                     WHERE MatchId = @MatchId
@@ -84,6 +86,7 @@ public sealed class SqlDayBeforeRepository(IConfiguration configuration) : IDayB
 
                 IF @Visibility = 'Private' AND @ConfirmedCount < 4
                 BEGIN
+                    -- An incomplete private match becomes public; this is the project interpretation of the one-week delay rule.
                     UPDATE pcm.Match
                     SET Visibility = 'Public'
                     WHERE MatchId = @MatchId;
@@ -91,6 +94,7 @@ public sealed class SqlDayBeforeRepository(IConfiguration configuration) : IDayB
 
                     IF NOT EXISTS
                     (
+                        -- SourceMatchId makes a repeated scheduler run avoid creating another ban.
                         SELECT 1
                         FROM pcm.BookingBan WITH (UPDLOCK, HOLDLOCK)
                         WHERE SourceMatchId = @MatchId
@@ -120,6 +124,7 @@ public sealed class SqlDayBeforeRepository(IConfiguration configuration) : IDayB
                 BEGIN
                     IF NOT EXISTS
                     (
+                        -- There can be only one debt per match, so the second run stays idempotent.
                         SELECT 1
                         FROM pcm.Debt WITH (UPDLOCK, HOLDLOCK)
                         WHERE MatchId = @MatchId

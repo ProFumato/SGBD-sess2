@@ -49,9 +49,11 @@ public sealed class DayBeforeProcessingHostedService(
 
         if (settings.RunOnStartup)
         {
+            // Useful after a restart: processing does not need to wait for the first timer tick.
             await RunOnceAsync(stoppingToken);
         }
 
+        // The worker repeats at the configured interval until the host asks it to stop.
         using var timer = new PeriodicTimer(settings.Interval);
         while (await timer.WaitForNextTickAsync(stoppingToken))
         {
@@ -61,6 +63,7 @@ public sealed class DayBeforeProcessingHostedService(
 
     private async Task RunOnceAsync(CancellationToken cancellationToken)
     {
+        // BackgroundService is a singleton, so create a scope before.
         await using var scope = scopeFactory.CreateAsyncScope();
         var runner = scope.ServiceProvider.GetRequiredService<DayBeforeProcessingRunner>();
         try

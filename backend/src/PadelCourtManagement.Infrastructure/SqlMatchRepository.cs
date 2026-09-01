@@ -337,6 +337,8 @@ public sealed class SqlMatchRepository(IConfiguration configuration) : IMatchRep
     {
         await using var connection = new SqlConnection(connectionString);
         await connection.OpenAsync(cancellationToken);
+        // Capacity is checked and the participant is inserted in one Serializable transaction.
+        // Otherwise two users could both take the last public place.
         using var transaction = connection.BeginTransaction(IsolationLevel.Serializable);
         try
         {
@@ -366,6 +368,7 @@ public sealed class SqlMatchRepository(IConfiguration configuration) : IMatchRep
                 await validate.ExecuteNonQueryAsync(cancellationToken);
             }
 
+            // Joining a public match immediately records its payment, participant, and participant allocation together.
             const string joinSql = """
                 DECLARE @PaymentId INT;
                 DECLARE @ParticipantId INT;

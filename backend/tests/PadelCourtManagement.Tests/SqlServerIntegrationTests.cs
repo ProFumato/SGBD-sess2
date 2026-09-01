@@ -10,6 +10,7 @@ namespace PadelCourtManagement.Tests;
 
 public sealed class SqlServerIntegrationTests
 {
+    // These tests intentionally use SQL Server to verify repository transactions and database constraints.
     [Fact]
     public async Task Reservation_is_persisted_with_organizer_participant()
     {
@@ -315,6 +316,7 @@ public sealed class SqlServerIntegrationTests
             }
 
             var repository = new SqlMatchRepository(database.Configuration);
+            // Four requests race for three remaining places; one must lose the transaction/constraint race.
             var attempts = members.Select(member =>
                 repository.AddPrivateParticipantAsync(
                     matchId,
@@ -388,6 +390,7 @@ public sealed class SqlServerIntegrationTests
             var removedParticipantId = await database.CreateParticipantAsync(matchId, database.SecondMemberId, false, "Pending");
 
             var service = new DayBeforeService(new SqlDayBeforeRepository(database.Configuration));
+            // Run the same cycle twice: the second pass must not create another ban or debt.
             var first = await service.ProcessAsync(
                 new DateTimeOffset(now, TimeSpan.FromHours(2)),
                 CancellationToken.None);

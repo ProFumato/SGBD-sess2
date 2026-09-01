@@ -5,12 +5,14 @@ using PadelCourtManagement.Application.Administration;
 using PadelCourtManagement.Domain;
 using PadelCourtManagement.Infrastructure;
 
+// Composition root: the API is allowed to reference Infrastructure here to wire interfaces to SQL implementations.
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.ConfigureHttpJsonOptions(options =>
 {
     options.SerializerOptions.PropertyNameCaseInsensitive = true;
     options.SerializerOptions.Converters.Add(new JsonStringEnumConverter());
+    // TimeOnly needs an explicit JSON format because it is used in reservation request contracts.
     options.SerializerOptions.Converters.Add(new TimeOnlyJsonConverter());
 });
 
@@ -22,6 +24,7 @@ builder.Services.AddControllers()
         options.JsonSerializerOptions.Converters.Add(new TimeOnlyJsonConverter());
     });
 builder.Services.AddSingleton<AdministrationAuthorizer>();
+// One SQL repository instance is shared by the administration interfaces in the same request scope.
 builder.Services.AddScoped<SqlAdministrationRepository>(sp =>
 {
     var connectionString = sp.GetRequiredService<IConfiguration>()
@@ -44,7 +47,9 @@ builder.Services.AddScoped<IAdministrationService, AdministrationService>();
 
 builder.Services.AddApplicationServices();
 builder.Services.AddSingleton(TimeProvider.System);
+// Hosted services are singletons, so the worker creates a scope before resolving its scoped runner.
 builder.Services.AddHostedService<DayBeforeProcessingHostedService>();
+// Services depend on these interfaces; this is the only place that selects the SQL implementations.
 builder.Services.AddScoped<IAvailabilityRepository, SqlAvailabilityRepository>();
 builder.Services.AddScoped<IMatchRepository, SqlMatchRepository>();
 builder.Services.AddScoped<IDebtRepository, SqlDebtRepository>();
@@ -303,6 +308,7 @@ administration.MapDelete("/closures/{closureId:int}", async (
     })
     .WithName("DeleteClosure");
 
+// Minimal API endpoints start here: they handle HTTP, while services contain business rules and repositories contain SQL.
 var availability = app.MapGroup("/api");
 availability.MapGet("/availability", async (
     [AsParameters] AvailabilityRequest request,
@@ -316,7 +322,9 @@ availability.MapPost("/reservations", async (
     IAvailabilityService service,
     CancellationToken cancellationToken) =>
     {
+        // ReservationRequest is bound from the JSON body and the service is supplied by DI.
         var reservation = await service.CreateReservationAsync(request, cancellationToken);
+        // The endpoint only translates the service result to HTTP; it does not execute SQL itself.
         return Results.Created($"/api/matches/{reservation.MatchId}", reservation);
     })
     .AddEndpointFilter<AdministrationExceptionFilter>()
