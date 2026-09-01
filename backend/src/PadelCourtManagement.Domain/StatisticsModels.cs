@@ -1,3 +1,6 @@
+// Statistics Models: Data types for usage reports.
+// Request parameters and response data for club statistics and analytics.
+
 namespace PadelCourtManagement.Domain;
 
 public sealed record StatisticsRequest(

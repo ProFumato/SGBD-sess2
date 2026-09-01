@@ -1,3 +1,6 @@
+// Availability Service Contract: Interface definition.
+// Defines methods for retrieving available court slots and creating reservations.
+
 using PadelCourtManagement.Domain;
 
 namespace PadelCourtManagement.Application;

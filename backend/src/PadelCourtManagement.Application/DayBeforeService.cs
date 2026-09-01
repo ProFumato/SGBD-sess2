@@ -1,3 +1,6 @@
+// Day Before Service: Automated daily processing run every evening.
+// Publishes matches for tomorrow, bans no-shows, applies fees, creates debts.
+
 using PadelCourtManagement.Domain;
 
 namespace PadelCourtManagement.Application;

@@ -1,3 +1,8 @@
+/**
+ * Identity Page
+ * Login form where members enter their matricule to access the app.
+ */
+
 import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { identifyMember } from "../api/identity";

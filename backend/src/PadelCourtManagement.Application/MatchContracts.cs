@@ -1,3 +1,6 @@
+// Match Service Contract: Interface definition.
+// Defines methods for managing match participants and retrieving match data.
+
 using PadelCourtManagement.Domain;
 
 namespace PadelCourtManagement.Application;

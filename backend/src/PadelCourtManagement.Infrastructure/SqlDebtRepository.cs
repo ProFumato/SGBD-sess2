@@ -1,3 +1,6 @@
+// SQL Debt Repository: Database access for member debt records.
+// Calculates outstanding balances and retrieves debt information for members and admins.
+
 using System.Data;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Configuration;

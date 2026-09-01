@@ -1,3 +1,6 @@
+// SQL Match Repository: Database access for matches and participants.
+// Manages private/public matches, participant lists, and match details.
+
 using System.Data;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Configuration;

@@ -1,3 +1,8 @@
+/**
+ * Admin Statistics Page
+ * View usage reports and statistics for a selected date range and site.
+ */
+
 import { useEffect, useState } from "react";
 import { ApiError } from "../api/client";
 import { getSites, getStatistics, type Site, type StatisticsReport } from "../api/administration";

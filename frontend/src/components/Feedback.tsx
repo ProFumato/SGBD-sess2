@@ -1,3 +1,8 @@
+/**
+ * Feedback Components
+ * Simple UI components for showing loading states, empty states, and error messages.
+ */
+
 import type { ReactNode } from "react";
 
 export function LoadingState({ label = "Loading..." }: { label?: string }) {

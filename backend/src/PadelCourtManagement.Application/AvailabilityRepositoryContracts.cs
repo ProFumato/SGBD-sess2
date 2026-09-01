@@ -1,3 +1,6 @@
+// Availability Repository Contracts: Interface definitions.
+// Defines database access methods for court availability and reservation data.
+
 using PadelCourtManagement.Domain;
 
 namespace PadelCourtManagement.Application;

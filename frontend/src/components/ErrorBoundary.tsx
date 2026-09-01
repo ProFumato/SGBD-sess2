@@ -1,3 +1,8 @@
+/**
+ * Error Boundary
+ * Catches and displays rendering errors that occur in child components.
+ */
+
 import { Component, type ErrorInfo, type ReactNode } from "react";
 import { ErrorState } from "./Feedback";
 

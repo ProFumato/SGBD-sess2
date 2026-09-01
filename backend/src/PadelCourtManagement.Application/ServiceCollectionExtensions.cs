@@ -1,3 +1,6 @@
+// Service Collection Extensions: Dependency injection setup for Application layer.
+// Registers all business services and configures background processing options.
+
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 

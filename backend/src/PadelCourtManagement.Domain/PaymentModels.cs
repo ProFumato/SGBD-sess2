@@ -1,3 +1,6 @@
+// Payment Models: Data types for payment records and outcomes.
+// Tracks payment success/failure, amounts, and debt status.
+
 namespace PadelCourtManagement.Domain;
 
 public enum PaymentOutcome

@@ -1,3 +1,8 @@
+/**
+ * Match Participants Page
+ * Manage who's playing in a private match. Add/remove/replace players and handle payment collection.
+ */
+
 import { useCallback, useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { ApiError } from "../api/client";

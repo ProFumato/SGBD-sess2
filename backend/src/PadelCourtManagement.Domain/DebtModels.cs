@@ -1,3 +1,6 @@
+// Debt Models: Data type for member outstanding balances.
+// Represents unpaid fees for a specific match/reservation.
+
 namespace PadelCourtManagement.Domain;
 
 public sealed record MemberDebt(

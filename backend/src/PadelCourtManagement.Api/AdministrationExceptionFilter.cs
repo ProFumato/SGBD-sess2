@@ -1,3 +1,6 @@
+// Administration Exception Filter: Catches exceptions from admin operations.
+// Converts domain exceptions to appropriate HTTP error responses (400, 403, 404, 409).
+
 using PadelCourtManagement.Domain;
 
 namespace PadelCourtManagement.Api;

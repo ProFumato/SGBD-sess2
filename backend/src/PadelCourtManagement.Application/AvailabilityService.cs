@@ -1,3 +1,6 @@
+// Availability Service: Business logic for court reservations.
+// Checks court availability, validates bookings, and manages reservation visibility (public/private).
+
 using PadelCourtManagement.Domain;
 
 namespace PadelCourtManagement.Application;
