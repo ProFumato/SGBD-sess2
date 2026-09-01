@@ -11,6 +11,7 @@ using PadelCourtManagement.Infrastructure;
 // Composition root: the API is allowed to reference Infrastructure here to wire interfaces to SQL implementations.
 var builder = WebApplication.CreateBuilder(args);
 
+// Minimal APIs and controller endpoints have separate JSON option pipelines, so configure both consistently.
 builder.Services.ConfigureHttpJsonOptions(options =>
 {
     options.SerializerOptions.PropertyNameCaseInsensitive = true;
@@ -26,6 +27,7 @@ builder.Services.AddControllers()
         options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
         options.JsonSerializerOptions.Converters.Add(new TimeOnlyJsonConverter());
     });
+// The authorizer holds no request-specific state and can be reused by every administration service instance.
 builder.Services.AddSingleton<AdministrationAuthorizer>();
 // One SQL repository instance is shared by the administration interfaces in the same request scope.
 builder.Services.AddScoped<SqlAdministrationRepository>(sp =>
@@ -48,6 +50,7 @@ builder.Services.AddScoped<IScheduleRepository>(sp => sp.GetRequiredService<SqlA
 builder.Services.AddScoped<IClosureRepository>(sp => sp.GetRequiredService<SqlAdministrationRepository>());
 builder.Services.AddScoped<IAdministrationService, AdministrationService>();
 
+// Register application services separately from the SQL-backed repository implementations selected below.
 builder.Services.AddApplicationServices();
 builder.Services.AddSingleton(TimeProvider.System);
 // Hosted services are singletons, so the worker creates a scope before resolving its scoped runner.
@@ -64,6 +67,7 @@ builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
+// HTTPS redirection is disabled for in-memory integration tests, which do not expose an HTTPS endpoint.
 if (!app.Environment.IsEnvironment("Testing"))
 {
     app.UseHttpsRedirection();
@@ -78,6 +82,7 @@ if (app.Environment.IsDevelopment())
 app.MapGet("/health", () => Results.Ok(new { status = "Healthy" }))
     .WithName("HealthCheck");
 
+// Identity is public: callers use it to resolve a matricule and learn its administration role.
 var identity = app.MapGroup("/api/identity")
     .AddEndpointFilter<AdministrationExceptionFilter>();
 identity.MapGet("/members/{matricule}", async (
@@ -87,6 +92,7 @@ identity.MapGet("/members/{matricule}", async (
     Results.Ok(await service.IdentifyAsync(matricule, cancellationToken)))
     .WithName("IdentifyMember");
 
+// This group owns club-management operations. The filter translates domain exceptions into HTTP responses.
 var administration = app.MapGroup("/api/admin")
     .AddEndpointFilter<AdministrationExceptionFilter>();
 
@@ -313,7 +319,7 @@ administration.MapDelete("/closures/{closureId:int}", async (
 
 
 
-// Minimal API endpoints start here: they handle HTTP, while services contain business rules and repositories contain SQL.
+// Reservation endpoints remain outside the administration group because members can create their own reservations.
 var availability = app.MapGroup("/api");
 availability.MapGet("/availability", async (
     [AsParameters] AvailabilityRequest request,
@@ -335,6 +341,7 @@ availability.MapPost("/reservations", async (
     .AddEndpointFilter<AdministrationExceptionFilter>()
     .WithName("CreateReservation");
 
+// Statistics require an administrator; the service checks the actor read from the request context.
 var statistics = app.MapGroup("/api/admin/statistics")
     .AddEndpointFilter<AdministrationExceptionFilter>();
 statistics.MapGet("/", async (
@@ -354,6 +361,7 @@ app.MapGet("/api/sites", async (
     Results.Ok(await sites.GetSitesAsync(null, cancellationToken)))
     .WithName("ListPublicSites");
 
+// Match operations are available to members; individual service methods validate participation and access.
 var matches = app.MapGroup("/api/matches")
     .AddEndpointFilter<AdministrationExceptionFilter>();
 matches.MapGet("/public", async (
@@ -420,6 +428,7 @@ matches.MapPost("/{matchId:int}/payment", async (
         cancellationToken,
         outcome ?? PaymentOutcome.Succeeded)));
 
+// Members can view their own debts, while the /admin routes delegate elevated access checks to the service.
 var debts = app.MapGroup("/api/debts")
     .AddEndpointFilter<AdministrationExceptionFilter>();
 debts.MapGet("/", async (
@@ -446,6 +455,7 @@ debts.MapDelete("/admin/{memberMatricule}", async (
         return Results.NoContent();
     });
 
+// The scheduled worker normally runs this job; this endpoint lets a global administrator trigger it manually.
 var processing = app.MapGroup("/api/processing")
     .AddEndpointFilter<AdministrationExceptionFilter>();
 processing.MapPost("/day-before", async (
@@ -453,6 +463,7 @@ processing.MapPost("/day-before", async (
     IDayBeforeService service,
     CancellationToken cancellationToken) =>
     {
+        // Resolve the caller before invoking a job that changes match and payment state.
         var actor = context.GetActorMatricule();
         var identityService = context.RequestServices.GetRequiredService<IAdministrationService>();
         var identity = await identityService.IdentifyAsync(actor, cancellationToken);
@@ -461,6 +472,7 @@ processing.MapPost("/day-before", async (
             throw new AdministrationForbiddenException("Only a global administrator can run day-before processing.");
         }
 
+        // Use UTC so the processing date is independent of the API server's local time zone.
         return Results.Ok(await service.ProcessAsync(DateTimeOffset.UtcNow, cancellationToken));
     });
 

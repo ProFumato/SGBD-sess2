@@ -13,7 +13,8 @@ public static class HttpContextExtensions
             || values.Count != 1
             || string.IsNullOrWhiteSpace(values[0]))
         {
-            throw new InvalidOperationException("Administration requests require exactly one X-Actor-Matricule header.");
+            throw new AdministrationValidationException(
+                "Administration requests require exactly one X-Actor-Matricule header.");
         }
 
         return values[0]!;
