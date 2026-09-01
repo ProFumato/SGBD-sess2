@@ -1,3 +1,6 @@
+// Administration Models: Enums and data types for club management.
+// Membership levels, admin scopes, closure types used throughout the system.
+
 namespace PadelCourtManagement.Domain;
 
 public enum MembershipCategory

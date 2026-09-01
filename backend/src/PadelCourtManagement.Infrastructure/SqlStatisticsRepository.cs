@@ -1,3 +1,6 @@
+// SQL Statistics Repository: Database access for usage reports.
+// Aggregates court usage, match counts, and revenue data for reporting.
+
 using System.Data;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Configuration;

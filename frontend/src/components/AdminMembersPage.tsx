@@ -1,3 +1,8 @@
+/**
+ * Admin Members Page
+ * Manage club members: create new members, edit their details, activate/deactivate them, and assign admin roles.
+ */
+
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { ApiError } from "../api/client";
 import {

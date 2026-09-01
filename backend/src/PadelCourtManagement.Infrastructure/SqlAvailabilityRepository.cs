@@ -1,3 +1,6 @@
+// SQL Availability Repository: Database access for court reservations.
+// Retrieves available time slots, member data, and manages reservation records.
+
 using System.Data;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Configuration;
@@ -158,6 +161,8 @@ public sealed class SqlAvailabilityRepository : IAvailabilityRepository
         return await reader.ReadAsync(cancellationToken) ? ReadContext(reader) : null;
     }
 
+
+    // TRANSACTION HERE
     public async Task<ReservationResult> CreateReservationAsync(
         ReservationCommand command,
         CancellationToken cancellationToken)

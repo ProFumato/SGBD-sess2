@@ -1,3 +1,6 @@
+// Payment Service: Handles payment collection for matches.
+// Records payments, tracks payment outcomes, and manages member balances.
+
 using PadelCourtManagement.Domain;
 
 namespace PadelCourtManagement.Application;

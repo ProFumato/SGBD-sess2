@@ -1,3 +1,8 @@
+/**
+ * Public Matches Page
+ * Browse and join public matches organized by site and date.
+ */
+
 import { useEffect, useMemo, useState } from "react";
 import { ApiError } from "../api/client";
 import { getPublicMatches, joinPublicMatch, type PublicMatch } from "../api/matches";

@@ -1,3 +1,6 @@
+// API Entry Point: Configure the web server, JSON serialization, services, and routes.
+// Wires up all layers: API -> Application -> Infrastructure -> SQL Database
+
 using System.Text.Json.Serialization;
 using PadelCourtManagement.Api;
 using PadelCourtManagement.Application;

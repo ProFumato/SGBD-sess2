@@ -1,3 +1,6 @@
+// Statistics Service: Generates usage reports for admins.
+// Provides court usage, match counts, and revenue data for specified date ranges and sites.
+
 using PadelCourtManagement.Application.Administration;
 using PadelCourtManagement.Domain;
 

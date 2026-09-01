@@ -1,3 +1,6 @@
+// SQL Administration Repository: Database access for admin data.
+// Implements all admin-related repository interfaces: members, admins, sites, courts, schedules, closures.
+
 using System.Data;
 using Microsoft.Data.SqlClient;
 using PadelCourtManagement.Application.Administration;

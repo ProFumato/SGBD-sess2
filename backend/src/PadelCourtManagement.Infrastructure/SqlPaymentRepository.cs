@@ -1,3 +1,6 @@
+// SQL Payment Repository: Database access for payment records and member balances.
+// Tracks payments, updates member accounts, and retrieves payment history.
+
 using System.Data;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Configuration;

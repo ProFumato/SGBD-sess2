@@ -1,3 +1,6 @@
+// Debt Service: Tracks member outstanding balances.
+// Calculates unpaid fees and allows admins to view/manage member debts.
+
 using PadelCourtManagement.Domain;
 using PadelCourtManagement.Application.Administration;
 

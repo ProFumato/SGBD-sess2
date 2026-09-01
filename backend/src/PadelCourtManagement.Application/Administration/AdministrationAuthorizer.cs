@@ -1,3 +1,6 @@
+// Administration Authorizer: Enforces role-based access control.
+// Checks if admins have Global scope or Site-specific permissions for each operation.
+
 using PadelCourtManagement.Domain;
 
 namespace PadelCourtManagement.Application.Administration;

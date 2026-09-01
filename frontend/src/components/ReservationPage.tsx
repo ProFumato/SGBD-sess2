@@ -1,3 +1,8 @@
+/**
+ * Reservation Page
+ * Reserve available court time slots. Choose site, date, time, and match visibility (private or public).
+ */
+
 import { useEffect, useMemo, useState } from "react";
 import { ApiError } from "../api/client";
 import {

@@ -1,3 +1,6 @@
+// Payment Service Contract: Interface definition.
+// Defines method for recording payments and updating member balances.
+
 using PadelCourtManagement.Domain;
 
 namespace PadelCourtManagement.Application;

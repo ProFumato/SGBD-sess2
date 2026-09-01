@@ -1,3 +1,16 @@
+/**
+ * Admin Configuration Page
+ * 
+ * This page lets administrators manage the club's setup:
+ * - Add or rename sites and courts
+ * - Turn courts on/off
+ * - Set opening and closing times for each year
+ * - Create closures (temporary or permanent) for the whole club or just one site
+ * 
+ * Admins with "Global" access can do everything.
+ * Site-specific admins can only manage their own site.
+ */
+
 import { useEffect, useState } from "react";
 import { ApiError } from "../api/client";
 import {
@@ -69,12 +82,12 @@ export function AdminConfigurationPage() {
     </form><form onSubmit={(event) => { event.preventDefault(); if (courtName.trim()) void action(() => createCourt(actor, siteId, courtName.trim())); setCourtName(""); }}>
       <h3>Courts</h3><label htmlFor="court-name">New court name</label><input id="court-name" value={courtName} onChange={(event) => setCourtName(event.target.value)} /><button className="button" disabled={busy}>Create court</button>
     </form><div className="admin-member-list">{courts.map((court) => <div className="admin-member-row" key={court.courtId}><span>{court.name} · {court.isActive ? "Active" : "Inactive"}</span><button className="button button-secondary" disabled={busy} onClick={() => void action(() => updateCourt(actor, court.courtId, court.name, !court.isActive))}>{court.isActive ? "Deactivate" : "Reactivate"}</button></div>)}</div>
-    <form onSubmit={(event) => { event.preventDefault(); if (opening < closing) void action(() => setSchedule(actor, siteId, year, opening, closing)); else setError("Opening time must be before closing time."); }}>
-      <h3>Annual schedule</h3><label htmlFor="schedule-year">Year</label><input id="schedule-year" type="number" value={year} onChange={(event) => setYear(Number(event.target.value))} /><label htmlFor="opening">Opening</label><input id="opening" type="time" step="1" value={opening.slice(0, 5)} onChange={(event) => setOpening(`${event.target.value}:00`)} /><label htmlFor="closing">Closing</label><input id="closing" type="time" step="1" value={closing.slice(0, 5)} onChange={(event) => setClosing(`${event.target.value}:00`)} /><button className="button" disabled={busy}>Save schedule</button>
-    </form><div className="admin-member-list">{schedules.map((schedule) => <div className="admin-member-row" key={schedule.siteAnnualScheduleId}>Year {schedule.calendarYear}: {schedule.openingTime}–{schedule.closingTime}</div>)}</div></>}
     {global && <form onSubmit={(event) => { event.preventDefault(); if (newSiteName.trim()) void action(() => createSite(actor, newSiteName.trim())); setNewSiteName(""); }}>
       <h3>Create site</h3><p className="muted">Add a new site to the club.</p><label htmlFor="site-name">New site name</label><input id="site-name" value={newSiteName} disabled={busy} onChange={(event) => setNewSiteName(event.target.value)} /><button className="button" disabled={busy || !newSiteName.trim()}>Create site</button>
     </form>}
+    <form onSubmit={(event) => { event.preventDefault(); if (opening < closing) void action(() => setSchedule(actor, siteId, year, opening, closing)); else setError("Opening time must be before closing time."); }}>
+      <h3>Annual schedule</h3><label htmlFor="schedule-year">Year</label><input id="schedule-year" type="number" value={year} onChange={(event) => setYear(Number(event.target.value))} /><label htmlFor="opening">Opening</label><input id="opening" type="time" step="1" value={opening.slice(0, 5)} onChange={(event) => setOpening(`${event.target.value}:00`)} /><label htmlFor="closing">Closing</label><input id="closing" type="time" step="1" value={closing.slice(0, 5)} onChange={(event) => setClosing(`${event.target.value}:00`)} /><button className="button" disabled={busy}>Save schedule</button>
+    </form><div className="admin-member-list">{schedules.map((schedule) => <div className="admin-member-row" key={schedule.siteAnnualScheduleId}>Year {schedule.calendarYear}: {schedule.openingTime}–{schedule.closingTime}</div>)}</div></>}
     <form onSubmit={(event) => { event.preventDefault(); if (reason.trim() && closureStart < closureEnd && (closureScope === "Global" || siteId)) void action(() => createClosure(actor, { scope: closureScope, siteId: closureScope === "Site" ? siteId : null, startsAt: closureStart, endsAt: closureEnd, reason })); else setError("Closure reason, scope, and interval must be valid."); setReason(""); }}>
       <h3>Closure</h3><label htmlFor="closure-scope">Scope</label><select id="closure-scope" value={closureScope} onChange={(event) => setClosureScope(event.target.value as "Global" | "Site")}><option value="Global">Global</option><option value="Site">Selected site</option></select><label htmlFor="closure-start">Starts</label><input id="closure-start" type="datetime-local" value={closureStart} onChange={(event) => setClosureStart(event.target.value)} /><label htmlFor="closure-end">Ends</label><input id="closure-end" type="datetime-local" value={closureEnd} onChange={(event) => setClosureEnd(event.target.value)} /><label htmlFor="closure-reason">Reason</label><input id="closure-reason" value={reason} onChange={(event) => setReason(event.target.value)} /><button className="button" disabled={busy || (!global && closureScope === "Global")}>Create closure</button>
     </form>

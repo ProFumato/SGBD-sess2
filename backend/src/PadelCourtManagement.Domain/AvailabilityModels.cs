@@ -1,3 +1,6 @@
+// Availability Models: Data types for court reservation requests and responses.
+// Request/response contracts double as domain models (no separate API mapping layer).
+
 namespace PadelCourtManagement.Domain;
 
 public enum ReservationVisibility

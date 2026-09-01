@@ -1,3 +1,6 @@
+// Day Before Service Contract: Interface definition.
+// Defines method for running daily processing tasks (match publishing, bans, fees).
+
 using PadelCourtManagement.Domain;
 
 namespace PadelCourtManagement.Application;

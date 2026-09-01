@@ -1,3 +1,6 @@
+// Debt Service Contract: Interface definition.
+// Defines methods for viewing and clearing member debts.
+
 using PadelCourtManagement.Domain;
 using PadelCourtManagement.Application.Administration;
 

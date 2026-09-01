@@ -1,3 +1,6 @@
+// Day Before Processing Host: Scheduled background service.
+// Runs daily to process matches, publish them, handle no-shows, and apply fees.
+
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;

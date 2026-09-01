@@ -1,3 +1,6 @@
+// SQL Day Before Repository: Database access for daily processing tasks.
+// Updates match status, creates bans, applies fees, and manages daily workflows.
+
 using System.Data;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Configuration;

@@ -1,3 +1,6 @@
+// Match Models: Data types for public and private matches.
+// Represents match info, participants, and organizer details.
+
 namespace PadelCourtManagement.Domain;
 
 public sealed record PrivateParticipantInput(string OrganizerMatricule, string ParticipantMatricule);

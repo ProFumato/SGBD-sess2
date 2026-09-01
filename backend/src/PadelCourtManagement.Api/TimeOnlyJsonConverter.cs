@@ -1,3 +1,6 @@
+// Time Only JSON Converter: Custom serializer for TimeOnly type.
+// Handles multiple time formats for JSON request/response serialization.
+
 using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Serialization;

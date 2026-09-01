@@ -1,3 +1,6 @@
+// Statistics Service Contract: Interface definition.
+// Defines method for retrieving usage reports and statistics.
+
 using PadelCourtManagement.Domain;
 
 namespace PadelCourtManagement.Application;

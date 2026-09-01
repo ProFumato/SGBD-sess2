@@ -1,3 +1,7 @@
+// Exception Types: Custom errors for business logic validation and authorization.
+// Separate exception hierarchies for admin operations and reservations.
+// Caught by exception filters to return appropriate HTTP status codes.
+
 namespace PadelCourtManagement.Domain;
 
 public abstract class AdministrationException(string message) : Exception(message);

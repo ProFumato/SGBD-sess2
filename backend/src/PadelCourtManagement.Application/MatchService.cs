@@ -1,3 +1,6 @@
+// Match Service: Manages private match creation and participants.
+// Add/remove/replace players, track organizers, and handle match roster changes.
+
 using PadelCourtManagement.Domain;
 
 namespace PadelCourtManagement.Application;

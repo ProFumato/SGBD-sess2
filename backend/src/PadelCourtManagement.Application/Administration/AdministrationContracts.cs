@@ -1,3 +1,6 @@
+// Administration Contracts: API request/response data types.
+// Input models for members, admins, sites, courts, schedules, and closures.
+
 using System.Globalization;
 using System.Text.Json.Serialization;
 using PadelCourtManagement.Domain;

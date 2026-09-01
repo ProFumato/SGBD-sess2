@@ -1,3 +1,6 @@
+// Administration Service: Manage club operations and member data.
+// Create/edit members, sites, courts, schedules, closures. Authenticate users and authorize actions.
+
 using PadelCourtManagement.Domain;
 
 namespace PadelCourtManagement.Application.Administration;
