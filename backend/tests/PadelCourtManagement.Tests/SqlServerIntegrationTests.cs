@@ -205,8 +205,8 @@ public sealed class SqlServerIntegrationTests
                 .PayParticipantAsync(matchId, database.MemberMatricule, CancellationToken.None);
 
             Assert.Equal(participantId, result.MatchParticipantId);
-            Assert.Equal(15m, result.TotalAmount);
-            Assert.Equal(15m, result.DebtAmount);
+            Assert.Equal(45m, result.TotalAmount);
+            Assert.Equal(30m, result.DebtAmount);
 
             var state = await database.QuerySingleAsync(
                 """
@@ -225,7 +225,7 @@ public sealed class SqlServerIntegrationTests
                 });
 
             Assert.Equal("Confirmed", state[0]);
-            Assert.Equal(30m, state[1]);
+            Assert.Equal(0m, state[1]);
             Assert.Equal(2, state[2]);
 
             var participant = await new SqlMatchRepository(database.Configuration)
@@ -287,6 +287,55 @@ public sealed class SqlServerIntegrationTests
             Assert.Equal("Failed", state[2]);
             Assert.Equal(DBNull.Value, state[3]);
             Assert.Equal(0, state[4]);
+        }
+        finally
+        {
+            await database.DisposeAsync();
+        }
+    }
+
+    [Fact]
+    public async Task Public_join_payment_settles_existing_organizer_debt()
+    {
+        var database = await IntegrationDatabase.CreateAsync();
+
+        try
+        {
+            var debtMatchId = await database.CreateMatchAsync(
+                DateTime.Now.AddDays(2),
+                "Private",
+                database.MemberId);
+            await database.CreateDebtAsync(debtMatchId, database.MemberId, 30m);
+            var publicMatchId = await database.CreateMatchAsync(
+                DateTime.Now.AddDays(3),
+                "Public",
+                database.SecondMemberId);
+
+            var result = await new SqlMatchRepository(database.Configuration)
+                .JoinPublicMatchAsync(
+                    publicMatchId,
+                    database.MemberId,
+                    DateTime.UtcNow,
+                    CancellationToken.None);
+
+            var state = await database.QuerySingleAsync(
+                """
+                SELECT pay.Amount,
+                       debt.OutstandingAmount,
+                       (SELECT COUNT(*) FROM pcm.PaymentAllocation WHERE PaymentId = pay.PaymentId)
+                FROM pcm.Payment AS pay
+                INNER JOIN pcm.Debt AS debt ON debt.MatchId = @DebtMatchId
+                WHERE pay.PaymentId = @PaymentId;
+                """,
+                command =>
+                {
+                    command.Parameters.Add("@DebtMatchId", SqlDbType.Int).Value = debtMatchId;
+                    command.Parameters.Add("@PaymentId", SqlDbType.Int).Value = result.PaymentId;
+                });
+
+            Assert.Equal(45m, state[0]);
+            Assert.Equal(0m, state[1]);
+            Assert.Equal(2, state[2]);
         }
         finally
         {

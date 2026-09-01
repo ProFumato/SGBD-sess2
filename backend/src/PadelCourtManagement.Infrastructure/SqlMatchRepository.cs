@@ -375,15 +375,19 @@ public sealed class SqlMatchRepository(IConfiguration configuration) : IMatchRep
                 DECLARE @DebtOwnerMemberId INT = @MemberId;
                 DECLARE @DebtId INT;
                 DECLARE @DebtAmount DECIMAL(9, 2);
-                DECLARE @RemainingAmount DECIMAL(9, 2) = 0.00;
+                DECLARE @ParticipantAmount DECIMAL(9, 2) = 15.00;
+                DECLARE @RemainingAmount DECIMAL(9, 2);
+                SELECT @RemainingAmount = COALESCE(SUM(OutstandingAmount), 0.00)
+                FROM pcm.Debt WITH (UPDLOCK, HOLDLOCK)
+                WHERE OrganizerMemberId = @DebtOwnerMemberId AND OutstandingAmount > 0;
                 INSERT INTO pcm.Payment (PayerMemberId, Amount, PaymentStatus, PaidAt)
-                VALUES (@MemberId, 15.00, 'Succeeded', @PaidAt);
+                VALUES (@MemberId, @ParticipantAmount + @RemainingAmount, 'Succeeded', @PaidAt);
                 SET @PaymentId = CONVERT(INT, SCOPE_IDENTITY());
                 INSERT INTO pcm.MatchParticipant (MatchId, MemberId, IsOrganizer, ParticipationStatus)
                 VALUES (@MatchId, @MemberId, 0, 'Confirmed');
                 SET @ParticipantId = CONVERT(INT, SCOPE_IDENTITY());
                 INSERT INTO pcm.PaymentAllocation (PaymentId, MatchParticipantId, DebtId, Amount)
-                VALUES (@PaymentId, @ParticipantId, NULL, 15.00);
+                VALUES (@PaymentId, @ParticipantId, NULL, @ParticipantAmount);
                 WHILE @RemainingAmount > 0
                 BEGIN
                     SELECT TOP (1) @DebtId = DebtId, @DebtAmount = OutstandingAmount

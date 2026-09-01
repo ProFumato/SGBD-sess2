@@ -308,6 +308,8 @@ administration.MapDelete("/closures/{closureId:int}", async (
     })
     .WithName("DeleteClosure");
 
+
+
 // Minimal API endpoints start here: they handle HTTP, while services contain business rules and repositories contain SQL.
 var availability = app.MapGroup("/api");
 availability.MapGet("/availability", async (

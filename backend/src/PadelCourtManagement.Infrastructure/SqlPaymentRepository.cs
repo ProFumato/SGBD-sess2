@@ -48,18 +48,15 @@ public sealed class SqlPaymentRepository(IConfiguration configuration) : IPaymen
         try
         {
             const string participantSql = """
-                SELECT p.MatchParticipantId, p.MemberId, m.OrganizerMemberId,
-                       p.ParticipationStatus, m.StartsAt, m.Visibility
+                SELECT p.MatchParticipantId, p.ParticipationStatus, m.StartsAt
                 FROM pcm.MatchParticipant AS p WITH (UPDLOCK, HOLDLOCK)
                 INNER JOIN pcm.Match AS m WITH (UPDLOCK, HOLDLOCK) ON m.MatchId = p.MatchId
                 WHERE p.MatchId = @MatchId AND p.MemberId = @MemberId;
                 """;
 
             int participantId;
-            int organizerId;
             string status;
             DateTime startsAt;
-            string visibility;
             await using (var participant = new SqlCommand(participantSql, connection, transaction))
             {
                 // Lock the participant and match while checking that this place can still be paid.
@@ -72,10 +69,8 @@ public sealed class SqlPaymentRepository(IConfiguration configuration) : IPaymen
                 }
 
                 participantId = reader.GetInt32(0);
-                organizerId = reader.GetInt32(2);
-                status = reader.GetString(3);
-                startsAt = reader.GetDateTime(4);
-                visibility = reader.GetString(5);
+                status = reader.GetString(1);
+                startsAt = reader.GetDateTime(2);
             }
 
             if (!string.Equals(status, "Pending", StringComparison.Ordinal))
@@ -90,7 +85,7 @@ public sealed class SqlPaymentRepository(IConfiguration configuration) : IPaymen
 
             var debtsToSettle = new List<(int Id, decimal Amount)>();
             decimal debtAmount = 0m;
-            if (outcome == PaymentOutcome.Succeeded && memberId == organizerId)
+            if (outcome == PaymentOutcome.Succeeded)
             {
                 const string debtsSql = """
                     SELECT DebtId, OutstandingAmount
@@ -108,10 +103,8 @@ public sealed class SqlPaymentRepository(IConfiguration configuration) : IPaymen
                     debtAmount += amount;
                 }
             }
-
             const decimal participantAmount = 15.00m;
-            debtAmount = Math.Min(debtAmount, participantAmount);
-            var totalAmount = participantAmount;
+            var totalAmount = participantAmount + debtAmount;
             int paymentId;
             const string paymentSql = """
                 INSERT INTO pcm.Payment (PayerMemberId, Amount, PaymentStatus, PaidAt)
